@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">聚星</string>
-    <string name="offline_title">当前网络不可用</string>
-    <string name="offline_message">聚星会在网络恢复后自动连接云端系统。</string>
-</resources>

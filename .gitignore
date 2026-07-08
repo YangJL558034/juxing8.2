@@ -33,10 +33,9 @@ coverage
 storybook-static
 public/uploads/
 
-# Android native build outputs
-android-native/build/
-android-native/*.keystore
-android-native/*.jks
+# Android APK client source/build outputs are kept local only
+android-native/
+scripts/build-android-apk.ps1
 
 # Package manager artifacts
 package-lock.json
