@@ -6,11 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   createDefaultSocialSecurityData,
-  normalizeSocialSecurityDocumentType,
   socialSecurityWaiverReasons,
   socialSecurityDocumentTitle,
 } from '@/lib/social-security-records';
-import type { SocialSecurityDocumentType, SocialSecurityFormData } from '@/types/social-security';
+import type { SocialSecurityFormData } from '@/types/social-security';
 
 function RequiredMark() {
   return <span className="ml-0.5 text-red-500">*</span>;
@@ -42,37 +41,20 @@ function Field({
   );
 }
 
-function initialType(): SocialSecurityDocumentType {
-  if (typeof window === 'undefined') return 'no_purchase';
-  return normalizeSocialSecurityDocumentType(new URLSearchParams(window.location.search).get('type'));
-}
-
 export default function SocialSecurityPage() {
-  const [data, setData] = useState<SocialSecurityFormData>(() => createDefaultSocialSecurityData(initialType()));
+  const [data, setData] = useState<SocialSecurityFormData>(() => createDefaultSocialSecurityData('combined'));
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
   const title = socialSecurityDocumentTitle(data.documentType);
   const canSubmit = useMemo(
-    () => Boolean(data.name && data.idCard && (data.documentType !== 'waiver' || data.reason)),
+    () => Boolean(data.name && data.idCard && data.reason),
     [data.documentType, data.idCard, data.name, data.reason],
   );
 
   const update = <K extends keyof SocialSecurityFormData>(field: K, value: SocialSecurityFormData[K]) => {
     setData((current) => ({ ...current, [field]: value }));
-  };
-
-  const changeType = (documentType: SocialSecurityDocumentType) => {
-    setData((current) => ({
-      ...createDefaultSocialSecurityData(documentType),
-      name: current.name,
-      idCard: current.idCard,
-      phone: current.phone,
-      department: current.department,
-      position: current.position,
-      hireDate: current.hireDate,
-    }));
   };
 
   const submit = async () => {
@@ -103,9 +85,9 @@ export default function SocialSecurityPage() {
             <CheckCircle2 className="h-8 w-8" />
           </div>
           <h1 className="mt-5 text-xl font-semibold">提交成功</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">后台会按你选择的模板导出文件。</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">后台将生成一条记录，导出文件包含两页社保声明。</p>
           <Button className="mt-6 w-full bg-blue-600 hover:bg-blue-700" onClick={() => {
-            setData(createDefaultSocialSecurityData(data.documentType));
+            setData(createDefaultSocialSecurityData('combined'));
             setSubmitted(false);
           }}>
             继续填写
@@ -130,25 +112,11 @@ export default function SocialSecurityPage() {
         <section className="rounded-lg border border-slate-100 bg-white shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-3">
             <FileText className="h-4 w-4 text-blue-600" />
-            <h2 className="text-base font-semibold">选择文件</h2>
+            <h2 className="text-base font-semibold">社保声明文件</h2>
           </div>
-          <div className="grid grid-cols-2 gap-2 p-3">
-            <Button
-              type="button"
-              variant={data.documentType === 'no_purchase' ? 'default' : 'outline'}
-              className={data.documentType === 'no_purchase' ? 'bg-slate-950 hover:bg-slate-800' : ''}
-              onClick={() => changeType('no_purchase')}
-            >
-              要求不购买社保
-            </Button>
-            <Button
-              type="button"
-              variant={data.documentType === 'waiver' ? 'default' : 'outline'}
-              className={data.documentType === 'waiver' ? 'bg-slate-950 hover:bg-slate-800' : ''}
-              onClick={() => changeType('waiver')}
-            >
-              自愿放弃社保
-            </Button>
+          <div className="space-y-2 p-3 text-sm leading-6 text-slate-700">
+            <p>一次填写、一次提交，后台只生成一条记录。</p>
+            <p className="font-medium text-slate-950">导出文件共两页：第 1 页“要求不购买社保申请书”，第 2 页“自愿放弃社保声明”。</p>
           </div>
         </section>
 
@@ -167,8 +135,7 @@ export default function SocialSecurityPage() {
           </div>
         </section>
 
-        {data.documentType === 'waiver' && (
-          <section className="rounded-lg border border-slate-100 bg-white shadow-sm">
+        <section className="rounded-lg border border-slate-100 bg-white shadow-sm">
             <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-3">
               <ShieldCheck className="h-4 w-4 text-blue-600" />
               <h2 className="text-base font-semibold">鉴于原因<RequiredMark /></h2>
@@ -189,8 +156,7 @@ export default function SocialSecurityPage() {
                 导出时会在源文件“鉴于____原因”横线上填写 A 或 B，括号里的两个选项会保留显示。
               </p>
             </div>
-          </section>
-        )}
+        </section>
 
         <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
           <div className="flex items-start gap-2">

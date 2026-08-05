@@ -5,6 +5,7 @@ import { socialSecurityWaiverReasonCode } from '@/lib/social-security-records';
 import type { SocialSecurityRecord } from '@/types/social-security';
 
 const TEMPLATE_BY_TYPE = {
+  combined: path.join(process.cwd(), 'src', 'templates', 'social-security-no-purchase-template.docx'),
   no_purchase: path.join(process.cwd(), 'src', 'templates', 'social-security-no-purchase-template.docx'),
   waiver: path.join(process.cwd(), 'src', 'templates', 'social-security-waiver-template.docx'),
 } as const;
@@ -258,7 +259,61 @@ function fillWaiverTemplate(documentXml: string, record: SocialSecurityRecord): 
   });
 }
 
+function renameWaiverNumbering(xml: string): string {
+  const offset = 100;
+  return xml
+    .replace(/w:abstractNumId="(\d+)"/g, (_match, id: string) => `w:abstractNumId="${Number(id) + offset}"`)
+    .replace(/<w:abstractNumId w:val="(\d+)"/g, (_match, id: string) => `<w:abstractNumId w:val="${Number(id) + offset}"`)
+    .replace(/w:numId="(\d+)"/g, (_match, id: string) => `w:numId="${Number(id) + offset}"`)
+    .replace(/<w:numId w:val="(\d+)"/g, (_match, id: string) => `<w:numId w:val="${Number(id) + offset}"`);
+}
+
+function importWaiverNumbering(entries: ZipEntry[], waiverEntries: ZipEntry[]) {
+  const numberingPath = 'word/numbering.xml';
+  const source = renameWaiverNumbering(readEntry(waiverEntries, numberingPath));
+  const abstractNumbers = (source.match(/<w:abstractNum\b[\s\S]*?<\/w:abstractNum>/g) || []).join('');
+  const numbers = (source.match(/<w:num\b[\s\S]*?<\/w:num>/g) || []).join('');
+  const target = readEntry(entries, numberingPath);
+  writeEntry(entries, numberingPath, target.replace('</w:numbering>', `${abstractNumbers}${numbers}</w:numbering>`));
+}
+
+function withNextPageSection(sectPr: string): string {
+  return sectPr.includes('<w:type ')
+    ? sectPr.replace(/<w:type\b[^>]*\/>/, '<w:type w:val="nextPage"/>')
+    : sectPr.replace(/<w:sectPr\b([^>]*)>/, '<w:sectPr$1><w:type w:val="nextPage"/>');
+}
+
+function mergeCombinedDocuments(
+  entries: ZipEntry[],
+  waiverEntries: ZipEntry[],
+  noPurchaseXml: string,
+  waiverXml: string,
+): string {
+  importWaiverNumbering(entries, waiverEntries);
+  const renamedWaiverXml = renameWaiverNumbering(waiverXml);
+  const noPurchaseSectPr = (noPurchaseXml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g) || []).at(-1);
+  const waiverBody = renamedWaiverXml.match(/<w:body>([\s\S]*?)<\/w:body>/)?.[1];
+  const waiverSectPr = (renamedWaiverXml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g) || []).at(-1);
+  if (!noPurchaseSectPr || !waiverBody || !waiverSectPr) {
+    throw new Error('Social security template section settings are missing');
+  }
+  const waiverContent = waiverBody.replace(waiverSectPr, '');
+  const sectionBreak = `<w:p><w:pPr>${withNextPageSection(noPurchaseSectPr)}</w:pPr></w:p>`;
+  return noPurchaseXml.replace(
+    `${noPurchaseSectPr}</w:body>`,
+    `${sectionBreak}${waiverContent}${waiverSectPr}</w:body>`,
+  );
+}
+
 export function buildSocialSecurityDocx(record: SocialSecurityRecord): Buffer {
+  if (record.documentType === 'combined') {
+    const entries = readZip(fs.readFileSync(TEMPLATE_BY_TYPE.no_purchase));
+    const waiverEntries = readZip(fs.readFileSync(TEMPLATE_BY_TYPE.waiver));
+    const noPurchaseXml = fillNoPurchaseTemplate(readEntry(entries, 'word/document.xml'), record);
+    const waiverXml = fillWaiverTemplate(readEntry(waiverEntries, 'word/document.xml'), record);
+    writeEntry(entries, 'word/document.xml', mergeCombinedDocuments(entries, waiverEntries, noPurchaseXml, waiverXml));
+    return createZip(entries.map((entry) => ({ path: entry.path, content: entry.content })));
+  }
   const templatePath = TEMPLATE_BY_TYPE[record.documentType];
   const template = fs.readFileSync(templatePath);
   const entries = readZip(template);

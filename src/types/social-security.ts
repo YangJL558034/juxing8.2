@@ -1,4 +1,4 @@
-export type SocialSecurityDocumentType = 'no_purchase' | 'waiver';
+export type SocialSecurityDocumentType = 'combined' | 'no_purchase' | 'waiver';
 export type SocialSecurityStatus = '待审核' | '已审核' | '已导出';
 
 export interface SocialSecurityFormData {

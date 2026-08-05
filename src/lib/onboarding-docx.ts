@@ -4,7 +4,10 @@ import { inflateRawSync } from 'node:zlib';
 import type { OnboardingRecord } from '@/types/onboarding';
 
 const TEMPLATE_PATH = path.join(process.cwd(), 'src', 'templates', 'onboarding-template.docx');
+const CONFIDENTIALITY_TEMPLATE_PATH = path.join(process.cwd(), 'src', 'templates', 'confidentiality-agreement-template.docx');
 const SIGNATURE_REL_ID = 'rId7';
+const CONFIDENTIALITY_STYLE_PREFIX = 'confidentiality-';
+const CONFIDENTIALITY_NUMBERING_OFFSET = 200;
 
 interface ZipEntry {
   path: string;
@@ -406,6 +409,135 @@ function getSignatureImage(dataUrl: string): Buffer | null {
   return Buffer.from(match[1], 'base64');
 }
 
+function renameConfidentialityStyles(xml: string): string {
+  return xml
+    .replace(/w:styleId="([^"]+)"/g, (_match, id: string) => `w:styleId="${CONFIDENTIALITY_STYLE_PREFIX}${id}"`)
+    .replace(/<(w:(?:pStyle|rStyle|basedOn|next|link)) w:val="([^"]+)"/g, (_match, tag: string, id: string) => `<${tag} w:val="${CONFIDENTIALITY_STYLE_PREFIX}${id}"`);
+}
+
+function renameConfidentialityNumbering(xml: string): string {
+  return xml
+    .replace(/w:abstractNumId="(\d+)"/g, (_match, id: string) => `w:abstractNumId="${Number(id) + CONFIDENTIALITY_NUMBERING_OFFSET}"`)
+    .replace(/<w:abstractNumId w:val="(\d+)"/g, (_match, id: string) => `<w:abstractNumId w:val="${Number(id) + CONFIDENTIALITY_NUMBERING_OFFSET}"`)
+    .replace(/w:numId="(\d+)"/g, (_match, id: string) => `w:numId="${Number(id) + CONFIDENTIALITY_NUMBERING_OFFSET}"`)
+    .replace(/<w:numId w:val="(\d+)"/g, (_match, id: string) => `<w:numId w:val="${Number(id) + CONFIDENTIALITY_NUMBERING_OFFSET}"`);
+}
+
+function importConfidentialityStyles(entries: ZipEntry[], sourceEntries: ZipEntry[]) {
+  const stylesPath = 'word/styles.xml';
+  const sourceStyles = renameConfidentialityStyles(readEntry(sourceEntries, stylesPath));
+  const importedStyles = (sourceStyles.match(/<w:style\b[\s\S]*?<\/w:style>/g) || [])
+    .map((style) => style.replace(/ w:default="1"/g, ''))
+    .join('');
+  if (!importedStyles) return;
+
+  const styles = readEntry(entries, stylesPath);
+  writeEntry(entries, stylesPath, styles.replace('</w:styles>', `${importedStyles}</w:styles>`));
+}
+
+function importConfidentialityNumbering(entries: ZipEntry[], sourceEntries: ZipEntry[]) {
+  const numberingPath = 'word/numbering.xml';
+  const sourceNumbering = renameConfidentialityNumbering(readEntry(sourceEntries, numberingPath));
+  const abstractNumbers = (sourceNumbering.match(/<w:abstractNum\b[\s\S]*?<\/w:abstractNum>/g) || []).join('');
+  const numbers = (sourceNumbering.match(/<w:num\b[\s\S]*?<\/w:num>/g) || []).join('');
+  if (!abstractNumbers && !numbers) return;
+
+  const numbering = readEntry(entries, numberingPath);
+  writeEntry(entries, numberingPath, numbering.replace('</w:numbering>', `${abstractNumbers}${numbers}</w:numbering>`));
+}
+
+function confidentialitySignatureDrawingXml(relId: string): string {
+  return signatureDrawingXml(relId)
+    .replaceAll('1001', '2001')
+    .replaceAll('cx="900000" cy="320000"', 'cx="760000" cy="210000"')
+    .replace(
+      /<wp:inline[^>]*>/,
+      '<wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="251658240" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="character"><wp:posOffset>0</wp:posOffset></wp:positionH><wp:positionV relativeFrom="line"><wp:posOffset>-90000</wp:posOffset></wp:positionV>',
+    )
+    .replace('</wp:inline>', '<wp:wrapNone/></wp:anchor>')
+    .replace('name="employee-signature"', 'name="confidentiality-signature"')
+    .replace('name="signature.png"', 'name="confidentiality-signature.png"');
+}
+
+function confidentialityParticipantParagraph(paragraph: string, record: OnboardingRecord): string {
+  const start = paragraph.match(/^<w:p\b[^>]*>/)?.[0] || '<w:p>';
+  const pPr = paragraph.match(/<w:pPr>[\s\S]*?<\/w:pPr>/)?.[0] || '';
+  const originalRPr = paragraph.match(/<w:rPr>[\s\S]*?<\/w:rPr>/)?.[0] || defaultRunProperties();
+  const plainRPr = originalRPr.replace(/<w:u\b[^>]*\/>/g, '<w:u w:val="none"/>');
+  const underlinedRPr = plainRPr.replace('</w:rPr>', '<w:u w:val="single"/></w:rPr>');
+  return `${start}${pPr}${runXml('乙方：', plainRPr)}${runXml(` ${record.name || ''} `, underlinedRPr)}${runXml('，    身份证号码：', plainRPr)}${runXml(` ${record.data.idCard || ''} `, underlinedRPr)}</w:p>`;
+}
+
+function confidentialitySigningParagraph(paragraph: string, record: OnboardingRecord, signatureRelId: string | null): string {
+  const start = paragraph.match(/^<w:p\b[^>]*>/)?.[0] || '<w:p>';
+  const pPr = (paragraph.match(/<w:pPr>[\s\S]*?<\/w:pPr>/)?.[0] || '')
+    .replace(/w:before="100"/g, 'w:before="0"')
+    .replace(/w:after="100"/g, 'w:after="0"');
+  const originalRPr = paragraph.match(/<w:rPr>[\s\S]*?<\/w:rPr>/)?.[0] || defaultRunProperties();
+  const rPr = withFontSize(originalRPr, 24);
+  const signature = signatureRelId
+    ? `<w:r>${confidentialitySignatureDrawingXml(signatureRelId)}</w:r>`
+    : runXml(record.name || '________________', rPr);
+  return `${start}${pPr}${runXml('甲方（盖章）：                     乙方：', rPr)}${signature}</w:p>`;
+}
+
+function confidentialityDateParagraph(paragraph: string, signatureDate: string): string {
+  const start = paragraph.match(/^<w:p\b[^>]*>/)?.[0] || '<w:p>';
+  const pPr = (paragraph.match(/<w:pPr>[\s\S]*?<\/w:pPr>/)?.[0] || '')
+    .replace(/w:before="100"/g, 'w:before="0"')
+    .replace(/w:after="100"/g, 'w:after="0"');
+  const rPr = paragraph.match(/<w:rPr>[\s\S]*?<\/w:rPr>/)?.[0] || defaultRunProperties();
+  return `${start}${pPr}${runXml(`年  月  日                         ${signatureDate}`, rPr)}</w:p>`;
+}
+
+function buildConfidentialitySection(sourceEntries: ZipEntry[], record: OnboardingRecord, signatureRelId: string | null): { body: string; sectPr: string } {
+  let sourceDocument = renameConfidentialityStyles(readEntry(sourceEntries, 'word/document.xml'));
+  sourceDocument = renameConfidentialityNumbering(sourceDocument);
+  const bodyMatch = sourceDocument.match(/<w:body>([\s\S]*?)<\/w:body>/);
+  if (!bodyMatch) throw new Error('Confidentiality template body not found');
+  const sectPr = bodyMatch[1].match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/)?.[0];
+  if (!sectPr) throw new Error('Confidentiality template section settings not found');
+
+  let body = bodyMatch[1].replace(sectPr, '');
+  body = body.replace(/<w:p\b[\s\S]*?<\/w:p>/g, (paragraph) => {
+    if (paragraph.includes('乙方：') && paragraph.includes('身份证号码：')) {
+      return confidentialityParticipantParagraph(paragraph, record);
+    }
+    if (paragraph.includes('甲方') && paragraph.includes('盖章') && paragraph.includes('乙方')) {
+      return confidentialitySigningParagraph(paragraph, record, signatureRelId);
+    }
+    const visibleText = (paragraph.match(/<w:t\b[^>]*>[\s\S]*?<\/w:t>/g) || [])
+      .join('')
+      .replace(/<[^>]+>/g, '');
+    if (/^年\s*月\s*日/.test(visibleText)) {
+      return confidentialityDateParagraph(paragraph, formatChineseDate(record.data.signatureDate));
+    }
+    return paragraph;
+  });
+  // Filling the previously blank identity/signature slots adds a small amount
+  // of vertical layout pressure. Compact only the source's 5 pt paragraph
+  // before/after spacing by 1 pt so the retained A4 agreement stays one page.
+  body = body
+    .replace(/w:before="100"/g, 'w:before="80"')
+    .replace(/w:after="100"/g, 'w:after="80"');
+  return { body, sectPr };
+}
+
+function appendConfidentialityAgreement(documentXml: string, entries: ZipEntry[], record: OnboardingRecord, signatureRelId: string | null): string {
+  const sourceEntries = readZip(fs.readFileSync(CONFIDENTIALITY_TEMPLATE_PATH));
+  importConfidentialityStyles(entries, sourceEntries);
+  importConfidentialityNumbering(entries, sourceEntries);
+  const confidentiality = buildConfidentialitySection(sourceEntries, record, signatureRelId);
+  const existingSectPrMatches = documentXml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g) || [];
+  const existingSectPr = existingSectPrMatches.at(-1);
+  if (!existingSectPr) throw new Error('Onboarding template section settings not found');
+  const nextPageSectPr = existingSectPr.includes('<w:type ')
+    ? existingSectPr.replace(/<w:type\b[^>]*\/>/, '<w:type w:val="nextPage"/>')
+    : existingSectPr.replace(/<w:sectPr\b([^>]*)>/, '<w:sectPr$1><w:type w:val="nextPage"/>');
+  const sectionBreak = `<w:p><w:pPr>${nextPageSectPr}</w:pPr></w:p>`;
+  return documentXml.replace(`${existingSectPr}</w:body>`, `${sectionBreak}${confidentiality.body}${confidentiality.sectPr}</w:body>`);
+}
+
 function recruitmentSourceText(record: OnboardingRecord): string {
   const selected = new Set(record.data.recruitmentSource || []);
   const otherText = text(record.data.otherRecruitmentSource);
@@ -502,6 +634,12 @@ export function buildOnboardingDocx(record: OnboardingRecord): Buffer {
     signature ? SIGNATURE_REL_ID : null,
     record.name,
     formatChineseDate(record.data.signatureDate),
+  );
+  documentXml = appendConfidentialityAgreement(
+    documentXml,
+    entries,
+    record,
+    signature ? SIGNATURE_REL_ID : null,
   );
 
   if (signature) {

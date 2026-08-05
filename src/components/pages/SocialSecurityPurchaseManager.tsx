@@ -529,8 +529,8 @@ export default function SocialSecurityPurchaseManager() {
       <div className="mt-6 rounded-lg border border-slate-100 bg-slate-50/60 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="text-sm font-semibold text-slate-950">放弃协议</div>
-            <p className="mt-1 text-sm text-slate-500">这里单独显示已审核的不购买社保申请、自愿放弃社保声明，以及台账中保险情况为放弃协议的人员。</p>
+            <div className="text-sm font-semibold text-slate-950">社保声明记录</div>
+            <p className="mt-1 text-sm text-slate-500">这里统一显示已审核的社保声明；新申请每人只显示一条记录，导出时包含两页声明文件。</p>
           </div>
           <Button variant="outline" size="sm" onClick={() => void loadAgreements()} disabled={agreementsLoading}>
             {agreementsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
@@ -566,7 +566,7 @@ export default function SocialSecurityPurchaseManager() {
                   <TableCell colSpan={10} className="h-24 text-center text-sm text-slate-500">
                     <span className="inline-flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      正在加载放弃协议...
+                      正在加载社保声明...
                     </span>
                   </TableCell>
                 </TableRow>

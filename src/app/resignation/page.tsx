@@ -6,7 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { createDefaultResignationData } from '@/lib/resignation-records';
+import { isCompleteIdCard, normalizeIdCard } from '@/lib/identity-validation';
 import type { ResignationFormData, ResignationType } from '@/types/resignation';
+
+interface EmployeeLookupResult {
+  name: string;
+  idCard: string;
+  employeeNo: string;
+  department: string;
+  position: string;
+  hireDate: string;
+  contractEndDate: string;
+}
 
 function RequiredMark() {
   return <span className="ml-0.5 text-red-500">*</span>;
@@ -19,6 +30,7 @@ function Field({
   required,
   type = 'text',
   placeholder,
+  readOnly,
 }: {
   label: string;
   value: string;
@@ -26,6 +38,7 @@ function Field({
   required?: boolean;
   type?: string;
   placeholder?: string;
+  readOnly?: boolean;
 }) {
   return (
     <div className="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-2">
@@ -33,7 +46,7 @@ function Field({
         {label}
         {required && <RequiredMark />}
       </label>
-      <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="h-11 text-base" />
+      <Input type={type} value={value} readOnly={readOnly} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className={readOnly ? 'h-11 bg-slate-50 text-base text-slate-600' : 'h-11 text-base'} />
     </div>
   );
 }
@@ -155,6 +168,8 @@ export default function ResignationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [lookupState, setLookupState] = useState<'idle' | 'loading' | 'found' | 'missing'>('idle');
+  const [lookupMessage, setLookupMessage] = useState('填写姓名和身份证号后，系统将自动带出员工入职信息。');
 
   const canSubmit = useMemo(() => (
     data.name
@@ -174,6 +189,58 @@ export default function ResignationPage() {
   const update = <K extends keyof ResignationFormData>(field: K, value: ResignationFormData[K]) => {
     setData((current) => ({ ...current, [field]: value }));
   };
+
+  useEffect(() => {
+    const name = data.name.trim();
+    const idCard = normalizeIdCard(data.idCard);
+    if (!name || !isCompleteIdCard(idCard)) {
+      setLookupState('idle');
+      setLookupMessage('填写姓名和身份证号后，系统将自动带出员工入职信息。');
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setLookupState('loading');
+      setLookupMessage('正在查询入职信息…');
+      try {
+        const response = await fetch('/api/resignation/employee-lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, idCard }),
+          signal: controller.signal,
+        });
+        const result = await response.json() as { success?: boolean; employee?: EmployeeLookupResult; error?: string };
+        if (!response.ok || !result.success || !result.employee) {
+          setLookupState('missing');
+          setLookupMessage(result.error || '未找到匹配的入职信息');
+          setData((current) => ({ ...current, employeeNo: '', department: '', position: '', hireDate: '', contractEndDate: '' }));
+          return;
+        }
+        const employee = result.employee;
+        setData((current) => ({
+          ...current,
+          name: employee.name,
+          idCard: employee.idCard,
+          employeeNo: employee.employeeNo,
+          department: employee.department,
+          position: employee.position,
+          hireDate: employee.hireDate,
+          contractEndDate: employee.contractEndDate,
+        }));
+        setLookupState('found');
+        setLookupMessage('已匹配入职记录，工号、部门、职位和入职日期已自动填写。');
+      } catch (lookupError) {
+        if (lookupError instanceof DOMException && lookupError.name === 'AbortError') return;
+        setLookupState('missing');
+        setLookupMessage('查询入职信息失败，请稍后重试');
+      }
+    }, 450);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [data.name, data.idCard]);
 
   const submit = async () => {
     if (!canSubmit || submitting) return;
@@ -234,12 +301,16 @@ export default function ResignationPage() {
           </div>
           <div className="space-y-4 p-3">
             <Field label="姓名" required value={data.name} onChange={(value) => update('name', value)} />
-            <Field label="工号" required value={data.employeeNo} onChange={(value) => update('employeeNo', value)} />
-            <Field label="部门" required value={data.department} onChange={(value) => update('department', value)} />
-            <Field label="身份证号" required value={data.idCard} onChange={(value) => update('idCard', value)} />
-            <Field label="职位" required value={data.position} onChange={(value) => update('position', value)} />
-            <Field label="入职日期" required type="date" value={data.hireDate} onChange={(value) => update('hireDate', value)} />
-            <Field label="合同到期" type="date" value={data.contractEndDate} onChange={(value) => update('contractEndDate', value)} />
+            <Field label="身份证号" required value={data.idCard} onChange={(value) => update('idCard', normalizeIdCard(value))} />
+            <div className={`rounded-md px-3 py-2 text-xs ${lookupState === 'found' ? 'bg-emerald-50 text-emerald-700' : lookupState === 'missing' ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
+              {lookupState === 'loading' && <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" />}
+              {lookupMessage}
+            </div>
+            <Field label="工号" required readOnly value={data.employeeNo} onChange={() => {}} />
+            <Field label="部门" required readOnly value={data.department} onChange={() => {}} />
+            <Field label="职位" required readOnly value={data.position} onChange={() => {}} />
+            <Field label="入职日期" required readOnly type="date" value={data.hireDate} onChange={() => {}} />
+            <Field label="合同到期" readOnly type="date" value={data.contractEndDate} onChange={() => {}} />
           </div>
         </section>
 

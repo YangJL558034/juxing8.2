@@ -125,7 +125,7 @@ function label(content: string, attrs = '') {
   return `<th ${attrs}>${escapeHtml(content)}</th>`;
 }
 
-function buildOfficialPrintHtml(record: OnboardingRecord) {
+export function buildOfficialPrintHtml(record: OnboardingRecord) {
   const data = record.data;
   const contact = data.emergencyContacts[0] || { name: '', relation: '', address: '', phone: '' };
   const signature = data.signatureDataUrl?.startsWith('data:image/') ? data.signatureDataUrl : '';
@@ -190,6 +190,12 @@ function buildOfficialPrintHtml(record: OnboardingRecord) {
     }
     .promise-page .sheet {
       padding-top: 6mm;
+      min-height: 276mm;
+      display: flex;
+      flex-direction: column;
+    }
+    .confidentiality-page .sheet {
+      padding-top: 2mm;
       min-height: 276mm;
       display: flex;
       flex-direction: column;
@@ -294,6 +300,47 @@ function buildOfficialPrintHtml(record: OnboardingRecord) {
       max-height: 42px;
       vertical-align: middle;
     }
+    .confidentiality-title {
+      margin: 0 0 3mm;
+      text-align: center;
+      font-family: SimSun, "宋体", serif;
+      font-size: 20pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+    .agreement-party,
+    .agreement-intro,
+    .agreement-paragraph {
+      margin: 0 0 1.6mm;
+      font-family: SimSun, "宋体", serif;
+      font-size: 10.5pt;
+      line-height: 1.42;
+    }
+    .agreement-party {
+      margin-bottom: 2.1mm;
+    }
+    .agreement-intro,
+    .agreement-paragraph {
+      text-indent: 2em;
+    }
+    .agreement-paragraph.level-two {
+      padding-left: 2em;
+      text-indent: 0;
+    }
+    .agreement-signatures {
+      margin-top: auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16mm;
+      padding: 2.5mm 9mm 0;
+      font-family: SimSun, "宋体", serif;
+      font-size: 10.5pt;
+      line-height: 1.7;
+    }
+    .agreement-signature {
+      min-height: 10mm;
+      white-space: nowrap;
+    }
     @media print {
       body { background: #fff; }
       .toolbar { display: none; }
@@ -308,6 +355,9 @@ function buildOfficialPrintHtml(record: OnboardingRecord) {
         padding: 0;
       }
       .promise-page .sheet {
+        min-height: 259mm;
+      }
+      .confidentiality-page .sheet {
         min-height: 259mm;
       }
     }
@@ -415,7 +465,7 @@ function buildOfficialPrintHtml(record: OnboardingRecord) {
           </tbody>
         </table>
 
-        <p class="remark">备注：请在填写前认真阅读背面“入职承诺”，并签字确认。</p>
+        <p class="remark">备注：请认真阅读后附的“入职承诺”和“公司员工保密协议”，并签字确认。</p>
       </div>
     </section>
 
@@ -442,6 +492,43 @@ function buildOfficialPrintHtml(record: OnboardingRecord) {
           ${signature ? `<img class="signature-img" src="${signature}" alt="员工签名" />` : field(data.name)}
           <br />
           日&nbsp;&nbsp;期：${formatChineseDate(data.signatureDate)}
+        </div>
+      </div>
+    </section>
+
+    <section class="page confidentiality-page">
+      <div class="sheet">
+        <h2 class="confidentiality-title">公司员工保密协议</h2>
+        <p class="agreement-party">甲方：东莞山泽新能源科技有限公司</p>
+        <p class="agreement-party">乙方：${field(data.name)}，&nbsp;&nbsp;&nbsp;&nbsp;身份证号码：${field(data.idCard)}</p>
+        <p class="agreement-intro">根据《中华人民共和国民法典》及有关规定，甲、乙双方在遵循诚实信用、平等自愿的原则下，经协商就甲方公司商业保密事项达成协议条款如下：</p>
+        <p class="agreement-paragraph">一、涉及甲方的公司下列信息或文件属于甲方公司的商业机密：</p>
+        <p class="agreement-paragraph level-two">1、技术信息：技术方案、设计方案、制作工艺、制作方法、技术报告、检测报告、实验数据、试验结果、图纸、样品等；</p>
+        <p class="agreement-paragraph level-two">2、经营信息：包括经营方针、投资决策意向、产品服务定价、客户名单、市场分析、广告策略、招投标中的标的及标书内容等文件；</p>
+        <p class="agreement-paragraph">甲方对上述内容实行保密制，乙方作为乙方员工，应承担保密义务，负有保密责任。</p>
+        <p class="agreement-paragraph">二、乙方必须严格遵守甲方公司规定的任何成文或者不成文的保密文件、规章、制度等，不得以任何形式将公司的任何机密泄露给公司以外的任何其他人。知悉公司机密泄漏情况者，应及时向甲方人事部负责人报告，并采取有效措施防止泄密进一步扩大。</p>
+        <p class="agreement-paragraph">三、乙方不得在私人交往或通信中泄露公司机密，不得在公共场合谈论公司机密，不得通过其他方式向第三方传递公司机密信息。</p>
+        <p class="agreement-paragraph">四、乙方不得与公司部门以外的第三方讨论、传播、散布及比对。</p>
+        <p class="agreement-paragraph">五、无论乙方以何种形式离职或被甲方辞退，双方解除或终止劳动合同后，乙方仍然不得向其在甲方任职期间接触、知悉的属于甲方公司就职人员及其有关亲朋好友披露自己曾在公司就职的公司机密及文件内容。</p>
+        <p class="agreement-paragraph">六、违约责任约定：</p>
+        <p class="agreement-paragraph level-two">1、如乙方违反本协议所约定的保密义务，应当承担违约责任，一次向甲方支付违约金人民币100000元，并赔偿因此给甲方造成的一切损失，包括因追究该违约责任所产生的合理费用（包括但不限于律师费、诉讼费）等。</p>
+        <p class="agreement-paragraph level-two">2、在劳动合同期限内，乙方违反本协议约定或有关法律规定，甲方按乙方自动离职处理，或者视情况给予降薪、降职甚至做出开除的处分决定。</p>
+        <p class="agreement-paragraph">七、争议解决办法：因履行本协议而发生的纠纷，可以由双方协商解决。协商不成时，提交甲方所在地人民法院提起诉讼。</p>
+        <p class="agreement-paragraph">八、本协议正本一式两份，甲、乙双方各执一份，具有同等法律效力。</p>
+        <p class="agreement-paragraph">九、本协议经甲、乙双方签字或盖章之日起生效。</p>
+        <p class="agreement-paragraph">十、本协议不因乙方从甲方离职而无效，乙方应对本协议内所列商业秘密进行永久保密直至有关商业秘密被合法公开。</p>
+
+        <div class="agreement-signatures">
+          <div>
+            <div class="agreement-signature">甲方（盖章）：</div>
+            <div>年&nbsp;&nbsp;&nbsp;&nbsp;月&nbsp;&nbsp;&nbsp;&nbsp;日</div>
+          </div>
+          <div>
+            <div class="agreement-signature">
+              乙方：${signature ? `<img class="signature-img" src="${signature}" alt="员工签名" />` : field(data.name)}
+            </div>
+            <div>${formatChineseDate(data.signatureDate)}</div>
+          </div>
         </div>
       </div>
     </section>

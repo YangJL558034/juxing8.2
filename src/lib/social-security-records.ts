@@ -32,10 +32,12 @@ export interface SocialSecurityDbRow {
 }
 
 export function socialSecurityDocumentTitle(type: SocialSecurityDocumentType) {
+  if (type === 'combined') return '社保声明（两份文件）';
   return type === 'waiver' ? '自愿放弃社保声明' : '要求不购买社保申请书';
 }
 
 export function normalizeSocialSecurityDocumentType(value: unknown): SocialSecurityDocumentType {
+  if (value === 'combined') return 'combined';
   return value === 'waiver' ? 'waiver' : 'no_purchase';
 }
 
@@ -45,7 +47,7 @@ export function normalizeSocialSecurityStatus(value: unknown): SocialSecuritySta
   return '待审核';
 }
 
-export function createDefaultSocialSecurityData(type: SocialSecurityDocumentType = 'no_purchase'): SocialSecurityFormData {
+export function createDefaultSocialSecurityData(type: SocialSecurityDocumentType = 'combined'): SocialSecurityFormData {
   return {
     documentType: type,
     name: '',
@@ -57,7 +59,7 @@ export function createDefaultSocialSecurityData(type: SocialSecurityDocumentType
     applicationDate: chinaToday(),
     companyName: '东莞山泽新能源科技有限公司',
     bureauCity: '东莞',
-    reason: type === 'waiver' ? socialSecurityWaiverReasons[0] : '',
+    reason: type === 'waiver' || type === 'combined' ? socialSecurityWaiverReasons[0] : '',
   };
 }
 
@@ -88,7 +90,7 @@ export function normalizeSocialSecurityData(value: unknown): SocialSecurityFormD
     applicationDate: String(merged.applicationDate || '').trim() || chinaToday(),
     companyName: String(merged.companyName || '').trim() || defaults.companyName,
     bureauCity: String(merged.bureauCity || '').trim() || defaults.bureauCity,
-    reason: documentType === 'waiver'
+    reason: documentType === 'waiver' || documentType === 'combined'
       ? normalizeSocialSecurityWaiverReason(merged.reason)
       : String(merged.reason || '').trim(),
   };

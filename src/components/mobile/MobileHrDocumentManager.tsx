@@ -28,8 +28,7 @@ export type MobileHrModuleKey =
   | 'workCertificate'
   | 'resignation'
   | 'resignationCertificate'
-  | 'socialSecurityNoPurchase'
-  | 'socialSecurityWaiver';
+  | 'socialSecurity';
 
 type RecordLike = Record<string, unknown> & {
   id: number;
@@ -117,28 +116,12 @@ const configs: Record<MobileHrModuleKey, ModuleConfig> = {
     restoreUrl: (id) => `/api/resignation-certificate/${id}/restore`,
     deleteUrl: (id) => `/api/resignation-certificate/${id}`,
   },
-  socialSecurityNoPurchase: {
-    key: 'socialSecurityNoPurchase',
-    title: '不购买社保管理',
-    desc: '查看、导出、删除和恢复不购买社保申请。',
+  socialSecurity: {
+    key: 'socialSecurity',
+    title: '社保声明管理',
+    desc: '一个入口管理两份声明；每次提交只生成一条记录，导出为两页文件。',
     endpoint: '/api/social-security',
-    typeParam: 'no_purchase',
     accent: 'from-emerald-600 to-teal-500',
-    primary: (record) => text(record.name),
-    secondary: (record) => `${text(record.department)} / ${text(record.position)}`,
-    dateLabel: '申请日期',
-    dateValue: (record) => date(record.applicationDate),
-    exportUrl: (id) => `/api/social-security/${id}/export`,
-    restoreUrl: (id) => `/api/social-security/${id}/restore`,
-    deleteUrl: (id) => `/api/social-security/${id}`,
-  },
-  socialSecurityWaiver: {
-    key: 'socialSecurityWaiver',
-    title: '放弃社保声明管理',
-    desc: '查看、导出、删除和恢复放弃社保声明。',
-    endpoint: '/api/social-security',
-    typeParam: 'waiver',
-    accent: 'from-emerald-600 to-lime-500',
     primary: (record) => text(record.name),
     secondary: (record) => `${text(record.department)} / ${text(record.position)}`,
     dateLabel: '申请日期',

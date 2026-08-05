@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { verifyToken } from '@/lib/auth';
 import { normalizeResignationData, parseResignationRow, type ResignationDbRow } from '@/lib/resignation-records';
+import { findResignationEmployee } from '@/lib/resignation-employee';
 
 async function requireUser(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
@@ -53,12 +54,27 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const data = normalizeResignationData(body?.data || body);
+    const submittedData = normalizeResignationData(body?.data || body);
 
-    if (!data.name) return NextResponse.json({ success: false, error: '姓名不能为空' }, { status: 400 });
-    if (!data.employeeNo) return NextResponse.json({ success: false, error: '工号不能为空' }, { status: 400 });
-    if (!data.department) return NextResponse.json({ success: false, error: '部门不能为空' }, { status: 400 });
-    if (!data.idCard) return NextResponse.json({ success: false, error: '身份证号码不能为空' }, { status: 400 });
+    if (!submittedData.name) return NextResponse.json({ success: false, error: '姓名不能为空' }, { status: 400 });
+    if (!submittedData.idCard) return NextResponse.json({ success: false, error: '身份证号码不能为空' }, { status: 400 });
+    const employee = findResignationEmployee(submittedData.name, submittedData.idCard);
+    if (!employee) {
+      return NextResponse.json({ success: false, error: '姓名和身份证号码未匹配到已审核的在职入职记录' }, { status: 400 });
+    }
+    const data = normalizeResignationData({
+      ...submittedData,
+      name: employee.name,
+      idCard: employee.idCard,
+      employeeNo: employee.employeeNo,
+      department: employee.department,
+      position: employee.position,
+      hireDate: employee.hireDate,
+      contractEndDate: employee.contractEndDate,
+    });
+
+    if (!data.employeeNo) return NextResponse.json({ success: false, error: '系统中的员工工号为空，请联系后台补充' }, { status: 400 });
+    if (!data.department) return NextResponse.json({ success: false, error: '系统中的员工部门为空，请联系后台补充' }, { status: 400 });
     if (!data.position) return NextResponse.json({ success: false, error: '职位不能为空' }, { status: 400 });
     if (!data.hireDate) return NextResponse.json({ success: false, error: '入职日期不能为空' }, { status: 400 });
     if (!data.applyDate) return NextResponse.json({ success: false, error: '申请日期不能为空' }, { status: 400 });

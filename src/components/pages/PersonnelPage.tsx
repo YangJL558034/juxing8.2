@@ -514,6 +514,12 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
     setDetailTab('basic');
   };
 
+  const showConfidentialityAgreement = (record: OnboardingRecord) => {
+    setSelectedId(record.id);
+    setDetailVisible(true);
+    setDetailTab('confidentiality');
+  };
+
   const openReview = (record: OnboardingRecord) => {
     if (record.status !== '待审核') return;
     setReviewTarget(record);
@@ -1034,20 +1040,12 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
                     社保管理
                   </Link>
                   <Link
-                    href="/social-security?type=no_purchase"
+                    href="/social-security"
                     target="_blank"
                     className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 hover:shadow-sm"
                   >
                     <FileCheck2 className="h-4 w-4" />
-                    不购买社保
-                  </Link>
-                  <Link
-                    href="/social-security?type=waiver"
-                    target="_blank"
-                    className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 hover:shadow-sm"
-                  >
-                    <FileCheck2 className="h-4 w-4" />
-                    放弃社保
+                    社保声明（两页）
                   </Link>
                 </div>
               </div>
@@ -1210,6 +1208,9 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
                           <button type="button" className="text-sm font-medium text-blue-600 hover:text-blue-700" onClick={() => showDetail(record)}>
                             查看
                           </button>
+                          <button type="button" className="text-sm font-medium text-violet-600 hover:text-violet-700" onClick={() => showConfidentialityAgreement(record)}>
+                            保密协议
+                          </button>
                           <button type="button" className="text-sm font-medium text-blue-600 hover:text-blue-700" onClick={() => openEdit(record)}>
                             修改
                           </button>
@@ -1270,12 +1271,15 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
 
             <Tabs value={detailTab} onValueChange={setDetailTab} className="h-[calc(100%-4.5rem)] gap-0">
               <div className="border-b border-slate-100 px-5 pt-3">
-                <TabsList className="h-9 bg-transparent p-0">
+                <TabsList className="h-9 max-w-full justify-start overflow-x-auto bg-transparent p-0">
                   <TabsTrigger value="basic" className="rounded-none border-b-2 border-transparent px-3 data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 data-[state=active]:shadow-none">
                     基本信息
                   </TabsTrigger>
                   <TabsTrigger value="notice" className="rounded-none border-b-2 border-transparent px-3 data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 data-[state=active]:shadow-none">
                     入厂须知
+                  </TabsTrigger>
+                  <TabsTrigger value="confidentiality" className="rounded-none border-b-2 border-transparent px-3 data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 data-[state=active]:shadow-none">
+                    保密协议
                   </TabsTrigger>
                   <TabsTrigger value="health" className="rounded-none border-b-2 border-transparent px-3 data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 data-[state=active]:shadow-none">
                     健康信息
@@ -1347,6 +1351,44 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
                       <p>本人承诺填写的入职登记信息真实有效，如有虚假，用人单位可按制度处理。</p>
                       <p className="text-blue-600">{selectedRecord.data.promiseConfirmed ? '员工已确认承诺内容' : '员工未确认承诺内容'}</p>
                     </div>
+                  </DetailSection>
+                </TabsContent>
+
+                <TabsContent value="confidentiality" className="m-0">
+                  <DetailSection title="公司员工保密协议">
+                    <div className="space-y-3 rounded-md border border-slate-100 bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+                      <p className="font-medium text-slate-950">甲方：东莞山泽新能源科技有限公司</p>
+                      <p>乙方：{selectedRecord.data.name}，身份证号码：{selectedRecord.data.idCard}</p>
+                      <p>一、涉及甲方公司的技术方案、设计方案、制作工艺、技术报告、检测报告、实验数据、图纸、样品，以及经营方针、投资决策意向、产品服务定价、客户名单、市场分析、广告策略、招投标文件等信息，均属于甲方公司的商业机密。</p>
+                      <p>二、乙方必须严格遵守甲方公司规定的保密文件、规章和制度，不得以任何形式向公司以外人员泄露公司机密；发现泄密情况时，应及时报告并采取有效措施。</p>
+                      <p>三、乙方不得在私人交往、通信或公共场合谈论、传递公司机密。</p>
+                      <p>四、乙方不得与公司部门以外的第三方讨论、传播、散布及比对公司机密。</p>
+                      <p>五、无论乙方以何种形式离职，劳动关系解除或终止后，仍不得向任职期间接触、知悉的公司以外人员披露公司机密及文件内容。</p>
+                      <p>六、乙方违反保密义务，应承担违约责任，一次向甲方支付违约金人民币 100000 元，并赔偿由此造成的一切损失；甲方可视情况给予降薪、降职直至解除劳动关系的处分。</p>
+                      <p>七、因履行本协议发生纠纷，双方协商不成时，提交甲方所在地人民法院处理。</p>
+                      <p>八、本协议一式两份，甲、乙双方各执一份，具有同等法律效力。</p>
+                      <p>九、本协议经甲、乙双方签字或盖章之日起生效。</p>
+                      <p>十、本协议不因乙方离职而无效，乙方应永久保密，直至有关商业秘密被合法公开。</p>
+                      <p className={selectedRecord.data.confidentialityAgreementConfirmed ? 'text-emerald-600' : 'text-amber-600'}>
+                        {selectedRecord.data.confidentialityAgreementConfirmed ? '员工已阅读确认并电子签署保密协议' : '历史记录未保存保密协议确认状态'}
+                      </p>
+                      <p className="text-xs text-slate-500">完整协议按公司提供的原始版式附在导出的入职登记表最后一页。</p>
+                    </div>
+                  </DetailSection>
+                  <DetailSection title="协议签名">
+                    {selectedRecord.data.signatureDataUrl ? (
+                      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- Employee signatures are stored as local data URLs. */}
+                        <img
+                          src={selectedRecord.data.signatureDataUrl}
+                          alt={`${selectedRecord.name}保密协议签名`}
+                          className="mx-auto h-24 max-w-full object-contain"
+                        />
+                        <p className="mt-2 text-center text-sm text-slate-500">签署日期：{formatDate(selectedRecord.data.signatureDate)}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">暂无电子签名</p>
+                    )}
                   </DetailSection>
                 </TabsContent>
 

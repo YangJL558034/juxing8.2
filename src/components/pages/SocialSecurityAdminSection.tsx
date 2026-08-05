@@ -238,14 +238,11 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
             <FileText className="h-4 w-4 text-blue-600" />
             社保管理
           </div>
-          <p className="mt-1 text-sm text-slate-500">员工移动端只填写个人信息，后台按对应模板导出社保申请文件。</p>
+          <p className="mt-1 text-sm text-slate-500">员工一次提交只生成一条记录，导出文件包含两页社保声明。</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50">
-            <Link href="/social-security?type=no_purchase" target="_blank">要求不购买社保申请书</Link>
-          </Button>
-          <Button asChild variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50">
-            <Link href="/social-security?type=waiver" target="_blank">自愿放弃社保声明</Link>
+            <Link href="/social-security" target="_blank">社保声明（两页合并）</Link>
           </Button>
           {mode === 'all' && (
             <Button asChild variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
@@ -274,20 +271,6 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
             onClick={() => setTypeFilter('all')}
           >
             全部
-          </Button>
-          <Button
-            variant={typeFilter === 'no_purchase' ? 'default' : 'outline'}
-            className={typeFilter === 'no_purchase' ? 'bg-slate-950 hover:bg-slate-800' : ''}
-            onClick={() => setTypeFilter('no_purchase')}
-          >
-            不购买社保
-          </Button>
-          <Button
-            variant={typeFilter === 'waiver' ? 'default' : 'outline'}
-            className={typeFilter === 'waiver' ? 'bg-slate-950 hover:bg-slate-800' : ''}
-            onClick={() => setTypeFilter('waiver')}
-          >
-            放弃社保
           </Button>
           <Button
             variant={listMode === 'active' ? 'default' : 'outline'}
@@ -417,7 +400,7 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
               ['申请日期', formatDate(viewTarget.applicationDate)],
               ['公司名称', viewTarget.data.companyName],
               ['社保局城市', viewTarget.data.bureauCity],
-              ['鉴于原因', viewTarget.documentType === 'waiver' ? viewTarget.data.reason : ''],
+              ['鉴于原因', viewTarget.documentType === 'waiver' || viewTarget.documentType === 'combined' ? viewTarget.data.reason : ''],
               ['状态', viewTarget.deletedAt ? '已删除' : viewTarget.status],
               ['提交人', viewTarget.submittedBy],
               ['创建时间', formatDateTime(viewTarget.createdAt)],
@@ -443,21 +426,7 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">文件类型</label>
-              <select
-                value={editData.documentType}
-                onChange={(event) => {
-                  const documentType = event.target.value as SocialSecurityDocumentType;
-                  setEditData((current) => ({
-                    ...current,
-                    documentType,
-                    reason: documentType === 'waiver' ? current.reason || socialSecurityWaiverReasons[0] : current.reason,
-                  }));
-                }}
-                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500"
-              >
-                <option value="no_purchase">{socialSecurityDocumentTitle('no_purchase')}</option>
-                <option value="waiver">{socialSecurityDocumentTitle('waiver')}</option>
-              </select>
+              <Input value={socialSecurityDocumentTitle(editData.documentType)} readOnly className="bg-slate-50" />
             </div>
             <Field label="姓名" required value={editData.name} onChange={(value) => updateField('name', value)} />
             <Field label="身份证" required value={editData.idCard} onChange={(value) => updateField('idCard', value)} />
@@ -468,7 +437,7 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
             <Field label="申请日期" type="date" value={editData.applicationDate} onChange={(value) => updateField('applicationDate', value)} />
             <Field label="公司名称" value={editData.companyName} onChange={(value) => updateField('companyName', value)} />
             <Field label="社保局城市" value={editData.bureauCity} onChange={(value) => updateField('bureauCity', value)} />
-            {editData.documentType === 'waiver' && (
+            {(editData.documentType === 'waiver' || editData.documentType === 'combined') && (
               <div className="space-y-1.5 sm:col-span-2">
                 <label className="text-sm font-medium text-slate-700">鉴于原因</label>
                 <div className="grid gap-2 sm:grid-cols-2">

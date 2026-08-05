@@ -1,5 +1,6 @@
 node_modules
 dist
+.codex-tmp/
 .DS_Store
 *.swp
 .git/*
@@ -101,6 +102,7 @@ logs/
 !src/templates/resignation-application-template.docx
 !src/templates/social-security-no-purchase-template.docx
 !src/templates/social-security-waiver-template.docx
+!src/templates/confidentiality-agreement-template.docx
 *.doc
 *.xlsx
 *.xls

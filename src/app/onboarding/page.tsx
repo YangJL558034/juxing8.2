@@ -8,6 +8,7 @@ import {
   CircleHelp,
   ClipboardList,
   ContactRound,
+  FileCheck2,
   FilePenLine,
   HeartPulse,
   IdCard,
@@ -31,8 +32,9 @@ const steps = [
   { id: 4, label: '健康' },
   { id: 5, label: '须知' },
   { id: 6, label: '承诺' },
-  { id: 7, label: '签名' },
-  { id: 8, label: '完成' },
+  { id: 7, label: '保密协议' },
+  { id: 8, label: '签名' },
+  { id: 9, label: '完成' },
 ];
 
 const today = chinaToday;
@@ -52,7 +54,7 @@ function createInitialData(): OnboardingFormData {
 
 function Stepper({ activeStep }: { activeStep: number }) {
   return (
-    <div className="grid grid-cols-8 gap-0.5 px-2 pb-2.5">
+    <div className="grid grid-cols-9 gap-0.5 px-2 pb-2.5">
       {steps.map((step) => {
         const isActive = step.id === activeStep;
         const isDone = step.id < activeStep;
@@ -407,6 +409,35 @@ function PromiseStep({ data, update }: { data: OnboardingFormData; update: Updat
   );
 }
 
+function ConfidentialityStep({ data, update }: { data: OnboardingFormData; update: Updater }) {
+  return (
+    <SectionCard icon={<FileCheck2 className="h-4 w-4" />} title="公司员工保密协议">
+      <div className="max-h-[58dvh] space-y-3 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-700">
+        <p className="text-center text-lg font-semibold text-slate-950">公司员工保密协议</p>
+        <p>甲方：东莞山泽新能源科技有限公司</p>
+        <p>乙方：{data.name || '员工本人'}，身份证号码：{data.idCard || '待填写'}</p>
+        <p>根据《中华人民共和国民法典》及有关规定，甲、乙双方在遵循诚实信用、平等自愿的原则下，经协商就甲方公司商业保密事项达成协议条款如下：</p>
+        <p>一、涉及甲方公司的技术方案、设计方案、制作工艺、技术报告、检测报告、实验数据、图纸、样品，以及经营方针、投资决策意向、产品服务定价、客户名单、市场分析、广告策略、招投标文件等信息，均属于甲方公司的商业机密。</p>
+        <p>二、乙方必须严格遵守甲方公司规定的保密文件、规章和制度，不得以任何形式向公司以外人员泄露公司机密；发现泄密情况时，应及时报告并采取有效措施。</p>
+        <p>三、乙方不得在私人交往、通信或公共场合谈论、传递公司机密。</p>
+        <p>四、乙方不得与公司部门以外的第三方讨论、传播、散布及比对公司机密。</p>
+        <p>五、无论乙方以何种形式离职，劳动关系解除或终止后，仍不得向任职期间接触、知悉的公司以外人员披露公司机密及文件内容。</p>
+        <p>六、乙方违反保密义务，应承担违约责任，一次向甲方支付违约金人民币 100000 元，并赔偿由此造成的一切损失；甲方可视情况给予降薪、降职直至解除劳动关系的处分。</p>
+        <p>七、因履行本协议发生纠纷，双方协商不成时，提交甲方所在地人民法院处理。</p>
+        <p>八、本协议一式两份，甲、乙双方各执一份，具有同等法律效力。</p>
+        <p>九、本协议经甲、乙双方签字或盖章之日起生效。</p>
+        <p>十、本协议不因乙方离职而无效，乙方应永久保密，直至有关商业秘密被合法公开。</p>
+      </div>
+      <CheckRow
+        checked={data.confidentialityAgreementConfirmed}
+        onChange={(value) => update('confidentialityAgreementConfirmed', value)}
+      >
+        我已完整阅读、理解并同意《公司员工保密协议》，同意下一步的电子签名同时作为本协议乙方签名
+      </CheckRow>
+    </SectionCard>
+  );
+}
+
 function SignatureStep({
   data,
   update,
@@ -475,7 +506,7 @@ function SignatureStep({
   return (
     <SectionCard icon={<FilePenLine className="h-4 w-4" />} title="电子签名">
       <p className="text-sm leading-6 text-slate-600">
-        本人已充分了解上述资料的真实性提交方式并订立劳动合同的前提条件，本人自愿遵守以上承诺内容。
+        本人已充分了解上述资料的真实性提交方式及订立劳动合同的前提条件，自愿遵守入职承诺和《公司员工保密协议》；本签名同时作为保密协议乙方签名。
       </p>
       <div className={expanded ? 'fixed inset-0 z-50 flex flex-col bg-white p-4' : 'space-y-2'}>
         <div className={expanded ? 'flex min-h-0 flex-1 flex-col' : 'space-y-2'}>
@@ -548,7 +579,7 @@ export default function OnboardingPage() {
   const [data, setData] = useState<OnboardingFormData>(() => createInitialData());
 
   const update: Updater = (key, value) => setData((current) => ({ ...current, [key]: value }));
-  const isSuccess = step === 8;
+  const isSuccess = step === 9;
 
   const validateCurrent = () => {
     if (step === 1 && !data.position.trim()) return '请填写入职岗位';
@@ -564,6 +595,7 @@ export default function OnboardingPage() {
     }
     if (step === 5 && (!data.hireDate || !data.wageMethod.trim())) return '请填写入职日期和工资计算方式';
     if (step === 6 && !data.promiseConfirmed) return '请勾选入职承诺确认';
+    if (step === 7 && !data.confidentialityAgreementConfirmed) return '请阅读并确认公司员工保密协议';
     return '';
   };
 
@@ -573,7 +605,7 @@ export default function OnboardingPage() {
       alert(error);
       return;
     }
-    setStep((current) => Math.min(7, current + 1));
+    setStep((current) => Math.min(8, current + 1));
   };
   const goPrev = () => setStep((current) => Math.max(1, current - 1));
 
@@ -612,7 +644,7 @@ export default function OnboardingPage() {
         return;
       }
       setRecordId(result.id || null);
-      setStep(8);
+      setStep(9);
     } catch (error) {
       console.error('Submit onboarding error:', error);
       alert('提交失败，请稍后重试');
@@ -644,10 +676,11 @@ export default function OnboardingPage() {
               {step === 4 && <HealthStep data={data} update={update} />}
               {step === 5 && <NoticeStep data={data} update={update} />}
               {step === 6 && <PromiseStep data={data} update={update} />}
-              {step === 7 && <SignatureStep data={data} update={update} canvasRef={canvasRef} hasSignature={hasSignature} setHasSignature={setHasSignature} />}
+              {step === 7 && <ConfidentialityStep data={data} update={update} />}
+              {step === 8 && <SignatureStep data={data} update={update} canvasRef={canvasRef} hasSignature={hasSignature} setHasSignature={setHasSignature} />}
             </div>
             <div className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[430px] border-t border-slate-100 bg-white px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-              {step === 7 ? (
+              {step === 8 ? (
                 <div className="space-y-3">
                   <Button onClick={handleSubmit} disabled={submitting} className="mobile-submit-button h-12 w-full bg-blue-600 hover:bg-blue-700">
                     {submitting ? '提交中...' : '提交'}

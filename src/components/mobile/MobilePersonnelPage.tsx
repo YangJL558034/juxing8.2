@@ -84,8 +84,7 @@ const quickActions = [
   { label: '工作证明', key: 'workCertificate', icon: FileCheck2 },
   { label: '离职申请', key: 'resignation', icon: UserMinus },
   { label: '离职证明', key: 'resignationCertificate', icon: FileCheck2 },
-  { label: '不购买社保', key: 'socialSecurityNoPurchase', icon: FileCheck2 },
-  { label: '放弃社保', key: 'socialSecurityWaiver', icon: FileCheck2 },
+  { label: '社保声明（两页）', key: 'socialSecurity', icon: FileCheck2 },
 ] as const;
 
 function formatDate(value?: string | null) {
@@ -675,6 +674,47 @@ export default function MobilePersonnelPage({ canManage = false }: { canManage?:
                 <DetailRow label="审核人" value={selectedRecord.reviewerName} />
                 <DetailRow label="审核时间" value={formatDateTime(selectedRecord.reviewedAt)} />
                 <DetailRow label="人事意见" value={selectedRecord.hrOpinion} />
+              </div>
+
+              <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-semibold text-slate-950">公司员工保密协议</h3>
+                  <span className={cn(
+                    'shrink-0 rounded-full px-2 py-1 text-xs font-medium',
+                    selectedRecord.data.confidentialityAgreementConfirmed
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-amber-100 text-amber-700',
+                  )}>
+                    {selectedRecord.data.confidentialityAgreementConfirmed ? '已确认签署' : '历史记录未确认'}
+                  </span>
+                </div>
+                <div className="mt-3 max-h-64 space-y-2 overflow-y-auto text-xs leading-5 text-slate-700">
+                  <p>甲方：东莞山泽新能源科技有限公司</p>
+                  <p>乙方：{selectedRecord.data.name}，身份证号码：{selectedRecord.data.idCard}</p>
+                  <p>一、甲方的技术方案、设计方案、制作工艺、技术报告、实验数据、图纸、样品、经营方针、产品定价、客户名单、市场分析及招投标文件等均属于商业机密。</p>
+                  <p>二、乙方必须遵守公司保密制度，不得以任何形式向公司以外人员泄露公司机密，发现泄密应及时报告并采取措施。</p>
+                  <p>三、乙方不得在私人交往、通信或公共场合谈论、传递公司机密。</p>
+                  <p>四、乙方不得与公司部门以外的第三方讨论、传播、散布及比对公司机密。</p>
+                  <p>五、乙方离职后仍不得披露任职期间接触、知悉的公司机密及文件内容。</p>
+                  <p>六、违反保密义务应承担违约责任，支付违约金人民币100000元并赔偿损失，公司可给予降薪、降职直至解除劳动关系的处分。</p>
+                  <p>七、履行本协议发生纠纷，协商不成时提交甲方所在地人民法院处理。</p>
+                  <p>八、本协议一式两份，甲乙双方各执一份，具有同等法律效力。</p>
+                  <p>九、本协议经甲乙双方签字或盖章之日起生效。</p>
+                  <p>十、本协议不因乙方离职而无效，乙方应永久保密，直至有关商业秘密被合法公开。</p>
+                </div>
+                {selectedRecord.data.signatureDataUrl ? (
+                  <div className="mt-3 rounded-xl border border-dashed border-blue-200 bg-white p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- Employee signatures are stored as local data URLs. */}
+                    <img
+                      src={selectedRecord.data.signatureDataUrl}
+                      alt={`${selectedRecord.name}保密协议签名`}
+                      className="mx-auto h-16 max-w-full object-contain"
+                    />
+                    <p className="mt-1 text-center text-xs text-slate-500">签署日期：{formatDate(selectedRecord.data.signatureDate)}</p>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-slate-500">暂无电子签名</p>
+                )}
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-2 pb-4">

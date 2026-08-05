@@ -54,6 +54,7 @@ export const defaultOnboardingData: OnboardingFormData = {
   machineAgreement: '',
   wageMethod: '底薪和加班费',
   promiseConfirmed: false,
+  confidentialityAgreementConfirmed: false,
   signatureDataUrl: '',
   signatureDate: '',
 };
@@ -83,6 +84,7 @@ export function normalizeOnboardingData(value: unknown): OnboardingFormData {
     }],
     wageMethod: merged.wageMethod === '底薪加班费和月薪' ? '底薪和加班费' : merged.wageMethod,
     promiseConfirmed: Boolean(merged.promiseConfirmed),
+    confidentialityAgreementConfirmed: Boolean(merged.confidentialityAgreementConfirmed),
   };
 }
 

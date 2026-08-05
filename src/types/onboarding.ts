@@ -41,6 +41,7 @@ export interface OnboardingFormData {
   machineAgreement: string;
   wageMethod: string;
   promiseConfirmed: boolean;
+  confidentialityAgreementConfirmed: boolean;
   signatureDataUrl: string;
   signatureDate: string;
 }

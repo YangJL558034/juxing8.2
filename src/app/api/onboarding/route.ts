@@ -93,6 +93,12 @@ export async function POST(request: NextRequest) {
     if (!data.position.trim()) {
       return NextResponse.json({ success: false, error: '入职岗位不能为空' }, { status: 400 });
     }
+    if (!data.promiseConfirmed) {
+      return NextResponse.json({ success: false, error: '请确认入职承诺' }, { status: 400 });
+    }
+    if (!data.confidentialityAgreementConfirmed) {
+      return NextResponse.json({ success: false, error: '请阅读并确认公司员工保密协议' }, { status: 400 });
+    }
     if (!data.signatureDataUrl.trim()) {
       return NextResponse.json({ success: false, error: '请完成电子签名' }, { status: 400 });
     }
