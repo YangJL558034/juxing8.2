@@ -3,6 +3,76 @@ import { db, logOperationServer } from '@/lib/database';
 import { verifyToken } from '@/lib/auth';
 import { chinaToday } from '@/lib/china-time';
 import { resolveEmployeeSalaryLocation } from '@/lib/employee-location';
+import { normalizeAttendanceSchedule } from '@/lib/attendance-missing-punch';
+
+const ATTENDANCE_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// 单独保存员工的上下班打卡时间，未设置时使用系统默认时间。
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const token = request.cookies.get('auth_token')?.value;
+    if (!token) {
+      return NextResponse.json({ error: '未登录' }, { status: 401 });
+    }
+
+    const decoded = await verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json({ error: '登录已过期' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const body = await request.json() as {
+      attendanceCheckInTime?: unknown;
+      attendanceCheckOutTime?: unknown;
+    };
+    const attendanceCheckInTime = String(body.attendanceCheckInTime ?? '').trim();
+    const attendanceCheckOutTime = String(body.attendanceCheckOutTime ?? '').trim();
+
+    if (!ATTENDANCE_TIME_PATTERN.test(attendanceCheckInTime) || !ATTENDANCE_TIME_PATTERN.test(attendanceCheckOutTime)) {
+      return NextResponse.json({ error: '打卡时间格式不正确' }, { status: 400 });
+    }
+
+    const schedule = normalizeAttendanceSchedule(attendanceCheckInTime, attendanceCheckOutTime);
+    if (schedule.checkInTime !== attendanceCheckInTime || schedule.checkOutTime !== attendanceCheckOutTime) {
+      return NextResponse.json({ error: '下班打卡时间必须晚于上班打卡时间' }, { status: 400 });
+    }
+
+    const employee = db.prepare('SELECT id, name FROM employees WHERE id = ?').get(id) as {
+      id: number;
+      name: string;
+    } | undefined;
+    if (!employee) {
+      return NextResponse.json({ error: '员工不存在' }, { status: 404 });
+    }
+
+    db.prepare(`
+      UPDATE employees
+      SET attendance_check_in_time = ?, attendance_check_out_time = ?
+      WHERE id = ?
+    `).run(schedule.checkInTime, schedule.checkOutTime, id);
+
+    logOperationServer({
+      userId: decoded.id,
+      userName: decoded.name || decoded.username,
+      module: 'employee',
+      action: 'update_attendance_schedule',
+      details: {
+        employeeId: employee.id,
+        employeeName: employee.name,
+        checkInTime: schedule.checkInTime,
+        checkOutTime: schedule.checkOutTime,
+      },
+      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null,
+      userAgent: request.headers.get('user-agent') || null,
+    });
+
+    const updatedEmployee = db.prepare('SELECT * FROM employees WHERE id = ?').get(id);
+    return NextResponse.json({ success: true, data: updatedEmployee, message: '打卡时间已保存' });
+  } catch (error) {
+    console.error('Update employee attendance schedule error:', error);
+    return NextResponse.json({ error: '保存打卡时间失败' }, { status: 500 });
+  }
+}
 
 // 更新员工
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

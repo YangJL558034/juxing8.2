@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { formatChinaDate } from '@/lib/china-time';
+import { chinaCurrentMonth, formatChinaDate } from '@/lib/china-time';
 import {
   formatAttendanceLeaveLabel,
   isDateInLeaveRange,
@@ -12,6 +12,13 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { 
   Search, 
   Clock, 
@@ -36,6 +43,7 @@ import {
   X
 } from 'lucide-react';
 import { logOperation, LogModules, LogActions } from '@/lib/log';
+import { missingPunchLabel, type MissingPunchReminder } from '@/lib/attendance-missing-punch';
 import type { LeaveRequestRecord } from '@/types/leave-request';
 
 interface Employee {
@@ -48,6 +56,8 @@ interface Employee {
   base_salary: number;
   status: string;
   location: string;
+  attendance_check_in_time?: string | null;
+  attendance_check_out_time?: string | null;
 }
 
 interface AttendanceRecord {
@@ -239,6 +249,13 @@ const LAST_EMPLOYEE_QUERY_KEY = 'employee-query:last-identity';
 const LAST_EMPLOYEE_QUERY_COOKIE = 'employee_query_last_identity';
 const LAST_EMPLOYEE_QUERY_MAX_AGE = 60 * 60 * 24 * 365;
 
+const getPreviousMonthKey = (): string => {
+  const [year, month] = chinaCurrentMonth().split('-').map(Number);
+  const previousMonth = month === 1 ? 12 : month - 1;
+  const previousYear = month === 1 ? year - 1 : year;
+  return `${previousYear}-${String(previousMonth).padStart(2, '0')}`;
+};
+
 interface SavedEmployeeQuery {
   name: string;
   idCard: string;
@@ -309,6 +326,9 @@ export default function EmployeeQueryPage() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [leaveRecords, setLeaveRecords] = useState<LeaveRequestRecord[]>([]);
+  const [missingPunchRecords, setMissingPunchRecords] = useState<MissingPunchReminder[]>([]);
+  const [missingPunchDialogOpen, setMissingPunchDialogOpen] = useState(false);
+  const [selectedAttendanceMonth, setSelectedAttendanceMonth] = useState('');
   const [salaryRecords, setSalaryRecords] = useState<SalaryRecord[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -489,10 +509,19 @@ export default function EmployeeQueryPage() {
         console.log('API返回打卡记录:', data.attendanceRecords?.length || 0, '条');
         setAttendanceRecords(data.attendanceRecords || []);
         setLeaveRecords(data.leaveRecords || []);
+        const missingRecords = (data.missingPunchRecords || []) as MissingPunchReminder[];
+        const previousMonthKey = getPreviousMonthKey();
+        const previousMonthMissingRecords = missingRecords.filter((record) => record.date.startsWith(`${previousMonthKey}-`));
+        setMissingPunchRecords(missingRecords);
+        setSelectedAttendanceMonth(previousMonthKey);
+        setMissingPunchDialogOpen(previousMonthMissingRecords.length > 0);
       } else {
         setEmployee(null);
         setAttendanceRecords([]);
         setLeaveRecords([]);
+        setMissingPunchRecords([]);
+        setSelectedAttendanceMonth('');
+        setMissingPunchDialogOpen(false);
         setSalaryRecords([]);
         setNotFound(true);
         setSearched(true);
@@ -542,8 +571,19 @@ export default function EmployeeQueryPage() {
     leaveRecords.forEach((leave) => {
       getLeaveMonthKeys(leave).forEach((key) => keys.add(key));
     });
+    missingPunchRecords.forEach((record) => keys.add(record.date.slice(0, 7)));
     return Array.from(keys).sort().reverse();
-  }, [attendanceByMonth, leaveRecords]);
+  }, [attendanceByMonth, leaveRecords, missingPunchRecords]);
+
+  const visibleMissingPunchRecords = useMemo(() => (
+    selectedAttendanceMonth
+      ? missingPunchRecords.filter((record) => record.date.startsWith(`${selectedAttendanceMonth}-`))
+      : []
+  ), [missingPunchRecords, selectedAttendanceMonth]);
+
+  const missingPunchCount = useMemo(() => (
+    visibleMissingPunchRecords.reduce((total, record) => total + record.missingPeriods.length, 0)
+  ), [visibleMissingPunchRecords]);
 
   const getDayLeaves = (date: string) => leaveRecords.filter((leave) =>
     leave.status === '已审核' && isDateInLeaveRange(leave, date)
@@ -1009,6 +1049,32 @@ export default function EmployeeQueryPage() {
               </CardContent>
             </Card>
 
+            {visibleMissingPunchRecords.length > 0 && (
+              <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
+                    <AlertCircle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-red-800">
+                      {selectedAttendanceMonth.replace('-', '年')}月发现 {missingPunchCount} 次缺卡，需要补卡
+                    </p>
+                    <p className="mt-1 text-sm text-red-700">
+                      每位员工的打卡时间可能不同，请根据自己的上班打卡时间查看缺卡日期和时段。
+                      当前时间：上班 {employee.attendance_check_in_time || '08:30'}、下班 {employee.attendance_check_out_time || '17:30'}。
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  className="shrink-0 bg-red-600 text-white hover:bg-red-700"
+                  onClick={() => setMissingPunchDialogOpen(true)}
+                >
+                  查看补卡时段
+                </Button>
+              </div>
+            )}
+
             {/* 三大手风琴模块 */}
             <Accordion type="single" collapsible defaultValue="salary" className="mt-4 space-y-3">
               {/* 打卡记录 */}
@@ -1020,7 +1086,7 @@ export default function EmployeeQueryPage() {
                     </div>
                     <div className="min-w-0 text-left">
                       <p className="font-semibold text-slate-950">打卡记录</p>
-                      <p className="text-xs text-slate-500">{attendanceRecords.length} 条打卡 · {leaveDayCount} 天请假</p>
+                      <p className="text-xs text-slate-500">{attendanceRecords.length} 条打卡 · {leaveDayCount} 天请假 · {missingPunchCount} 次需补卡</p>
                     </div>
                   </div>
                 </AccordionTrigger>
@@ -1028,7 +1094,18 @@ export default function EmployeeQueryPage() {
                   {attendanceMonthKeys.length === 0 ? (
                     <p className="rounded-xl bg-stone-50 py-8 text-center text-sm text-slate-500">暂无打卡或请假记录</p>
                   ) : (
-                    <Accordion type="single" collapsible className="space-y-3">
+                    <Accordion
+                      type="single"
+                      collapsible
+                      value={selectedAttendanceMonth}
+                      onValueChange={(monthKey) => {
+                        setSelectedAttendanceMonth(monthKey);
+                        setMissingPunchDialogOpen(Boolean(
+                          monthKey && missingPunchRecords.some((record) => record.date.startsWith(`${monthKey}-`))
+                        ));
+                      }}
+                      className="space-y-3"
+                    >
                       {attendanceMonthKeys.map(monthKey => {
                         const [y, m] = monthKey.split('-').map(Number);
                         const days = getDaysInMonth(y, m);
@@ -1036,7 +1113,9 @@ export default function EmployeeQueryPage() {
                           const date = `${monthKey}-${String(index + 1).padStart(2, '0')}`;
                           return getDayLeaves(date).length > 0 ? date : '';
                         }).filter(Boolean).length;
-                        const maxCount = Math.max(getMaxAttendanceCount(monthKey), monthLeaveCount > 0 ? 1 : 0);
+                        const monthMissingRecords = missingPunchRecords.filter((record) => record.date.startsWith(`${monthKey}-`));
+                        const monthMissingCount = monthMissingRecords.reduce((total, record) => total + record.missingPeriods.length, 0);
+                        const maxCount = Math.max(getMaxAttendanceCount(monthKey), monthLeaveCount > 0 || monthMissingCount > 0 ? 1 : 0);
                         
                         return (
                           <AccordionItem key={monthKey} value={monthKey} className="rounded-xl border border-stone-200 bg-[#fbfcfa] px-3">
@@ -1046,7 +1125,7 @@ export default function EmployeeQueryPage() {
                                 <span className="font-medium text-slate-900">{y}年{m}月</span>
                               </div>
                               <Badge variant="outline" className="mr-2 border-stone-200 bg-white text-slate-600">
-                                {(attendanceByMonth[monthKey] || []).length} 条 · 请假 {monthLeaveCount} 天
+                                {(attendanceByMonth[monthKey] || []).length} 条 · 请假 {monthLeaveCount} 天 · 补卡 {monthMissingCount} 次
                               </Badge>
                             </AccordionTrigger>
                             <AccordionContent>
@@ -1087,13 +1166,17 @@ export default function EmployeeQueryPage() {
                                           const hasNote = time && time.includes('（');
                                           const displayTime = time ? time.substring(0, 5) : '';
                                           const hasLeave = dayLeaves.length > 0;
-                                          
+                                          const missingReminder = row === 1
+                                            ? monthMissingRecords.find((reminder) => reminder.date === dateText)
+                                            : undefined;
+                                          const hasMissingPunch = Boolean(missingReminder?.missingPeriods.length);
+
                                           return (
                                             <td 
                                               key={day} 
-                                              className={`border-r border-t border-stone-200 p-1.5 text-center ${isWeekend(y, m, day) ? 'bg-amber-50' : ''} ${hasLeave ? 'bg-rose-50 text-rose-600' : ''}`}
+                                              className={`border-r border-t border-stone-200 p-1.5 text-center ${isWeekend(y, m, day) ? 'bg-amber-50' : ''} ${hasLeave ? 'bg-rose-50 text-rose-600' : ''} ${hasMissingPunch ? 'bg-red-50 ring-1 ring-inset ring-red-200' : ''}`}
                                             >
-                                              {time || hasLeave ? (
+                                              {time || hasLeave || hasMissingPunch ? (
                                                 <div className="flex flex-col items-center">
                                                   {time && <span className={hasNote ? 'font-medium text-cyan-700' : hasLeave ? 'text-rose-700' : 'text-slate-800'}>{displayTime}</span>}
                                                   {hasNote && (
@@ -1106,6 +1189,11 @@ export default function EmployeeQueryPage() {
                                                       {leaveLabel}
                                                     </span>
                                                   )}
+                                                  {missingReminder?.missingPeriods.map((period) => (
+                                                    <span key={period} className="whitespace-nowrap text-[10px] font-semibold text-red-600">
+                                                      缺 {missingPunchLabel(period, missingReminder)}
+                                                    </span>
+                                                  ))}
                                                 </div>
                                               ) : (
                                                 <span className="text-slate-300">-</span>
@@ -1684,6 +1772,38 @@ export default function EmployeeQueryPage() {
             </Accordion>
           </>
         )}
+
+        <Dialog open={missingPunchDialogOpen} onOpenChange={setMissingPunchDialogOpen}>
+          <DialogContent className="max-h-[82vh] max-w-lg overflow-hidden rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-700">
+                <AlertCircle className="h-5 w-5" />
+                需要补卡提醒
+              </DialogTitle>
+              <DialogDescription>
+                当前只显示 {selectedAttendanceMonth.replace('-', '年')}月的缺卡记录。点击打卡记录中的其他月份，可切换查看对应月份。
+                每位员工的打卡时间可能不同，请根据自己的上班、下班时间查看缺卡日期和时段。
+                当前时间：上班 {employee?.attendance_check_in_time || '08:30'}、下班 {employee?.attendance_check_out_time || '17:30'}。
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[58vh] space-y-2 overflow-y-auto pr-1">
+              {visibleMissingPunchRecords.map((record) => (
+                <div key={record.date} className="rounded-xl border border-red-100 bg-red-50 px-3 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium text-slate-900">{record.date}</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {record.missingPeriods.map((period) => (
+                        <span key={period} className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-red-600 ring-1 ring-red-200">
+                          缺 {missingPunchLabel(period, record)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* 签字对话框 */}
         {signDialogOpen && (

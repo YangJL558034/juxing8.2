@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, db } from '@/lib/database';
 import {
+  isDateInLeaveRange,
   parseLeaveRequestRow,
   type LeaveRequestDbRow,
 } from '@/lib/leave-records';
+import { chinaNowSql, chinaToday } from '@/lib/china-time';
+import {
+  createMissingPunchReminder,
+  extractAttendanceTimes,
+  getMissingPunchPeriods,
+  isExpectedAttendanceDate,
+  type MissingPunchReminder,
+} from '@/lib/attendance-missing-punch';
 
 interface MonthlyRecordRow {
   [key: string]: unknown;
@@ -23,6 +32,66 @@ interface AttendanceRecord {
   time: string;
   year: number;
   month: number;
+}
+
+function buildMissingPunchReminders(
+  monthlyRecords: MonthlyRecordRow[],
+  leaveRecords: ReturnType<typeof parseLeaveRequestRow>[],
+  hireDate?: string | null,
+  checkInTime?: string | null,
+  checkOutTime?: string | null,
+): MissingPunchReminder[] {
+  const today = chinaToday();
+  const currentTime = chinaNowSql().slice(11, 16);
+  const monthKeys = new Set<string>();
+  const timesByDate = new Map<string, string[]>();
+
+  monthlyRecords.forEach((record) => {
+    const monthKey = `${record.year}-${String(record.month_num).padStart(2, '0')}`;
+    monthKeys.add(monthKey);
+    if (!record.details) return;
+
+    try {
+      const details = JSON.parse(record.details) as Record<string, unknown>;
+      Object.entries(details).forEach(([day, value]) => {
+        const dayNumber = Number(day);
+        if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 31) return;
+        const date = `${monthKey}-${String(dayNumber).padStart(2, '0')}`;
+        const merged = [...(timesByDate.get(date) || []), ...extractAttendanceTimes(value)];
+        timesByDate.set(date, [...new Set(merged)]);
+      });
+    } catch {
+      // 无法解析的旧数据不参与缺卡判断。
+    }
+  });
+
+  const reminders: MissingPunchReminder[] = [];
+  Array.from(monthKeys).forEach((monthKey) => {
+    if (monthKey > today.slice(0, 7)) return;
+    const [year, month] = monthKey.split('-').map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const lastDay = monthKey === today.slice(0, 7) ? Number(today.slice(8, 10)) : daysInMonth;
+
+    for (let day = 1; day <= lastDay; day += 1) {
+      const date = `${monthKey}-${String(day).padStart(2, '0')}`;
+      if (!isExpectedAttendanceDate(date, hireDate)) continue;
+      const leaves = leaveRecords.filter((leave) => isDateInLeaveRange(leave, date));
+      const missingPeriods = getMissingPunchPeriods({
+        date,
+        times: timesByDate.get(date) || [],
+        leaves,
+        today,
+        currentTime,
+        checkInTime,
+        checkOutTime,
+      });
+      if (missingPeriods.length > 0) {
+        reminders.push(createMissingPunchReminder(date, missingPeriods, checkInTime, checkOutTime));
+      }
+    }
+  });
+
+  return reminders.sort((a, b) => b.date.localeCompare(a.date));
 }
 
 // 员工查询（免登录，通过姓名+身份证验证）
@@ -51,6 +120,9 @@ export async function GET(request: NextRequest) {
       base_salary: number;
       status: string;
       location?: string;
+      hire_date?: string | null;
+      attendance_check_in_time?: string | null;
+      attendance_check_out_time?: string | null;
     } | undefined;
 
     if (!employee) {
@@ -138,6 +210,15 @@ export async function GET(request: NextRequest) {
       ORDER BY leave_date DESC, created_at DESC, id DESC
     `).all(employee.id, employee.id_card || '', employee.name, employee.department || '') as LeaveRequestDbRow[];
 
+    const leaveRecords = leaveRows.map(parseLeaveRequestRow);
+    const missingPunchRecords = buildMissingPunchReminders(
+      monthlyRecords,
+      leaveRecords,
+      employee.hire_date,
+      employee.attendance_check_in_time,
+      employee.attendance_check_out_time,
+    );
+
     // 用员工表的部门信息覆盖工资记录的部门信息（工资表部门可能为空）
     const salaryRecordsWithDept = monthlyRecords.map((record) => ({
       ...record,
@@ -151,7 +232,8 @@ export async function GET(request: NextRequest) {
       salaryRecords: salaryRecordsWithDept,
       monthlyRecords: salaryRecordsWithDept,
       attendanceRecords: attendanceRecords,
-      leaveRecords: leaveRows.map(parseLeaveRequestRow),
+      leaveRecords,
+      missingPunchRecords,
     });
   } catch (error) {
     console.error('Query employee error:', error);

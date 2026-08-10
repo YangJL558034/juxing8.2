@@ -35,11 +35,18 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Clock, Search, Download, Calendar, Users, ExternalLink, Copy, Plus, Trash2, Phone, User, Building, Upload, FileSpreadsheet, Check, UserCog, Edit, Pencil, FileDown, ChevronDown, ChevronUp, PenTool, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Clock, Search, Download, Calendar, Users, ExternalLink, Copy, Plus, Trash2, Phone, User, Building, Upload, FileSpreadsheet, Check, UserCog, Edit, Pencil, FileDown, ChevronDown, ChevronUp, PenTool, RefreshCw } from 'lucide-react';
 import { WorkHoursImport } from './WorkHoursImport';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { chinaToday, formatChinaDateTime } from '@/lib/china-time';
+import { chinaNowSql, chinaToday, formatChinaDateTime } from '@/lib/china-time';
 import { formatAttendanceLeaveLabel, isDateInLeaveRange, isLeaveRangeOverlappingMonth } from '@/lib/leave-records';
+import {
+  createMissingPunchReminder,
+  getMissingPunchPeriods,
+  isExpectedAttendanceDate,
+  missingPunchLabel,
+  type MissingPunchReminder,
+} from '@/lib/attendance-missing-punch';
 import type { LeaveRequestRecord } from '@/types/leave-request';
 
 interface SalaryRecord {
@@ -75,6 +82,8 @@ interface Employee {
   status?: string;
   hire_date?: string;
   resign_date?: string;
+  attendance_check_in_time?: string | null;
+  attendance_check_out_time?: string | null;
   created_at: string;
 }
 
@@ -162,6 +171,12 @@ interface MonthlyRecord {
   remark?: string;
 }
 
+interface AttendanceMissingWarning extends MissingPunchReminder {
+  employeeId: number;
+  employeeName: string;
+  existingTimes: string[];
+}
+
 interface ImportedSalaryRecord {
   name: string;
   normalHours?: number;
@@ -240,6 +255,11 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
   const [editFormData, setEditFormData] = useState({ name: '', phone: '', id_card: '', department: '', location: 'workshop' as string, status: '在职', hire_date: '' });
   const [monthlyRecords, setMonthlyRecords] = useState<MonthlyRecord[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequestRecord[]>([]);
+  const [attendanceClock, setAttendanceClock] = useState<{ today: string; currentTime: string } | null>(null);
+  const [showMissingPunchDialog, setShowMissingPunchDialog] = useState(false);
+  const [attendanceScheduleEmployee, setAttendanceScheduleEmployee] = useState<Employee | null>(null);
+  const [attendanceScheduleForm, setAttendanceScheduleForm] = useState({ checkInTime: '08:30', checkOutTime: '17:30' });
+  const [savingAttendanceSchedule, setSavingAttendanceSchedule] = useState(false);
   const [editingSalaryRecord, setEditingSalaryRecord] = useState<MonthlyRecord | null>(null);
   const [showAddSalaryDialog, setShowAddSalaryDialog] = useState(false);
   const [newSalaryData, setNewSalaryData] = useState({
@@ -269,6 +289,16 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
   useEffect(() => {
     setActiveTab(section);
   }, [section]);
+
+  useEffect(() => {
+    const updateAttendanceClock = () => {
+      const now = chinaNowSql();
+      setAttendanceClock({ today: now.slice(0, 10), currentTime: now.slice(11, 16) });
+    };
+    updateAttendanceClock();
+    const intervalId = window.setInterval(updateAttendanceClock, 60_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
   
   // 签字图片查看状态
   const [viewingSignature, setViewingSignature] = useState<{ signature: string; employeeName: string; signTime?: string } | null>(null);
@@ -509,7 +539,53 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
 
     return [...baseRows, ...leaveOnlyRows];
   };
-  
+
+  const attendanceMissingWarnings: AttendanceMissingWarning[] = [];
+  if (attendanceClock) {
+    const year = Number(searchYear);
+    const month = Number(searchMonth);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const seenWarnings = new Set<string>();
+
+    getAttendanceRows(year, month, attendanceLocation)
+      .filter((record) => record.id > 0)
+      .forEach((record) => {
+        const details = parseAttendanceDetails(record);
+        const employee = employees.find((item) => item.id === record.employee_id)
+          || employees.find((item) => item.name === record.employee_name);
+
+        for (let day = 1; day <= daysInMonth; day += 1) {
+          const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          if (!isExpectedAttendanceDate(date, employee?.hire_date)) continue;
+          const existingTimes = getAttendanceTimes(details[String(day)]);
+          const leaves = getLeaveRequestsForRecordDate(record, date);
+          const missingPeriods = getMissingPunchPeriods({
+            date,
+            times: existingTimes,
+            leaves,
+            today: attendanceClock.today,
+            currentTime: attendanceClock.currentTime,
+            checkInTime: employee?.attendance_check_in_time,
+            checkOutTime: employee?.attendance_check_out_time,
+          });
+          const warningKey = `${record.employee_id}:${date}`;
+          if (missingPeriods.length === 0 || seenWarnings.has(warningKey)) continue;
+          seenWarnings.add(warningKey);
+          attendanceMissingWarnings.push({
+            ...createMissingPunchReminder(
+              date,
+              missingPeriods,
+              employee?.attendance_check_in_time,
+              employee?.attendance_check_out_time,
+            ),
+            employeeId: record.employee_id,
+            employeeName: record.employee_name,
+            existingTimes,
+          });
+        }
+      });
+  }
+
   // 计算员工工时明细
   const calculateEmployeeWorkHours = (employeeId: number, year: number, month: number) => {
     const record = monthlyRecords.find(r => 
@@ -702,6 +778,55 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
       fetchLeaveRequests();
     },
   });
+
+  const openAttendanceScheduleDialog = (employeeId: number, employeeName?: string) => {
+    const employee = employees.find((item) => item.id === employeeId)
+      || employees.find((item) => item.name === employeeName);
+    if (!employee) {
+      alert('未找到该员工，请刷新后重试');
+      return;
+    }
+    setAttendanceScheduleEmployee(employee);
+    setAttendanceScheduleForm({
+      checkInTime: employee.attendance_check_in_time || '08:30',
+      checkOutTime: employee.attendance_check_out_time || '17:30',
+    });
+  };
+
+  const saveAttendanceSchedule = async () => {
+    if (!attendanceScheduleEmployee) return;
+    if (attendanceScheduleForm.checkInTime >= attendanceScheduleForm.checkOutTime) {
+      alert('下班打卡时间必须晚于上班打卡时间');
+      return;
+    }
+
+    setSavingAttendanceSchedule(true);
+    try {
+      const response = await fetch(`/api/employees/${attendanceScheduleEmployee.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attendanceCheckInTime: attendanceScheduleForm.checkInTime,
+          attendanceCheckOutTime: attendanceScheduleForm.checkOutTime,
+        }),
+      });
+      const result = await response.json() as { success?: boolean; data?: Employee; error?: string };
+      if (!response.ok || !result.success || !result.data) {
+        alert(result.error || '保存打卡时间失败');
+        return;
+      }
+
+      setEmployees((current) => current.map((employee) =>
+        employee.id === result.data?.id ? { ...employee, ...result.data } : employee
+      ));
+      setAttendanceScheduleEmployee(null);
+    } catch (error) {
+      console.error('保存员工打卡时间失败:', error);
+      alert('保存打卡时间失败');
+    } finally {
+      setSavingAttendanceSchedule(false);
+    }
+  };
 
   // 打开打卡记录编辑对话框
   const openAttendanceEdit = (employeeId: number, employeeName: string, year: number, month: number, day: number, existingTimes: string[]) => {
@@ -2251,6 +2376,32 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                 </div>
               </div>
 
+              <div className="mb-5 flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-blue-800">
+                <UserCog className="h-5 w-5 shrink-0" />
+                <p className="text-sm font-medium">
+                  操作提示：点击表格左侧的员工姓名，可设置该员工的上班、下班打卡时间范围。
+                </p>
+              </div>
+
+              {attendanceMissingWarnings.length > 0 && (
+                <div className="mb-5 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+                    <div>
+                      <p className="font-semibold text-red-800">
+                        本月发现 {attendanceMissingWarnings.length} 天存在缺卡记录
+                      </p>
+                      <p className="mt-1 text-sm text-red-700">
+                        每位员工的打卡时间可能不同，请按各自设置的上班、下班时间查看红色缺卡日期和时段。
+                      </p>
+                    </div>
+                  </div>
+                  <Button type="button" variant="destructive" onClick={() => setShowMissingPunchDialog(true)}>
+                    查看补卡时段
+                  </Button>
+                </div>
+              )}
+
               {/* 打卡记录日历视图 */}
               {(() => {
                 const year = parseInt(searchYear);
@@ -2283,7 +2434,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                     <table className="border-collapse border border-gray-300 text-xs min-w-max">
                       <thead>
                         <tr className="bg-blue-500 text-white">
-                          <th className="border border-gray-300 p-2 min-w-20 bg-blue-600">姓名</th>
+                          <th className="sticky left-0 z-20 min-w-20 border border-gray-300 bg-blue-600 p-2 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.45)]">姓名</th>
                           <th className="border border-gray-300 p-2 min-w-16 bg-blue-600">日期</th>
                           {Array.from({ length: daysInMonth }, (_, i) => {
                             const day = i + 1;
@@ -2303,8 +2454,15 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                           const details = parseAttendanceDetails(record);
                           return (
                             <tr key={record.id}>
-                              <td className="border border-gray-300 p-2 bg-yellow-100 font-medium text-center">
-                                {record.employee_name}
+                              <td className="sticky left-0 z-10 min-w-20 whitespace-nowrap border border-gray-300 bg-yellow-100 p-2 text-center font-medium shadow-[4px_0_6px_-4px_rgba(15,23,42,0.28)]">
+                                <button
+                                  type="button"
+                                  className="font-medium text-slate-900 underline decoration-dashed underline-offset-4 hover:text-blue-700"
+                                  title="点击设置该员工的上下班打卡时间"
+                                  onClick={() => openAttendanceScheduleDialog(record.employee_id, record.employee_name)}
+                                >
+                                  {record.employee_name}
+                                </button>
                               </td>
                               <td className="border border-gray-300 p-2 bg-gray-50 text-center text-gray-400">
                                 {record.department || '-'}
@@ -2338,14 +2496,23 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                                 // 检查是否有带备注的时间
                                 const hasNote = times.some(t => t.includes('（'));
                                 const hasLeave = dayLeaves.length > 0;
+                                const missingWarning = attendanceMissingWarnings.find((warning) =>
+                                  warning.employeeId === record.employee_id && warning.date === dateText
+                                );
+                                const hasMissingPunch = Boolean(missingWarning?.missingPeriods.length);
                                 return (
                                   <td 
                                     key={day} 
-                                    className={`border border-gray-300 p-1 text-center whitespace-pre-line text-xs cursor-pointer hover:bg-blue-50 transition-colors ${hasNote ? 'text-blue-600' : ''} ${hasLeave ? 'bg-rose-50 font-medium text-rose-600' : ''}`}
+                                    className={`border border-gray-300 p-1 text-center whitespace-pre-line text-xs cursor-pointer hover:bg-blue-50 transition-colors ${hasNote ? 'text-blue-600' : ''} ${hasLeave ? 'bg-rose-50 font-medium text-rose-600' : ''} ${hasMissingPunch ? 'bg-red-50 font-medium text-red-600 ring-1 ring-inset ring-red-300' : ''}`}
                                     onClick={() => openAttendanceEdit(record.employee_id, record.employee_name, year, month, day, times)}
-                                    title={hasLeave ? '已审核请假记录' : '点击编辑打卡记录'}
+                                    title={hasMissingPunch ? `需补卡：${missingWarning?.missingPeriods.map((period) => missingPunchLabel(period, missingWarning)).join('、')}` : hasLeave ? '已审核请假记录' : '点击编辑打卡记录'}
                                   >
-                                    {displayContent}
+                                    {displayContent && <div>{displayContent}</div>}
+                                    {missingWarning?.missingPeriods.map((period) => (
+                                      <div key={period} className="mt-0.5 whitespace-nowrap text-[10px] font-semibold text-red-600">
+                                        缺 {missingPunchLabel(period, missingWarning)}
+                                      </div>
+                                    ))}
                                   </td>
                                 );
                               })}
@@ -2966,6 +3133,111 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
         </DialogContent>
       </Dialog>
       
+      <Dialog
+        open={Boolean(attendanceScheduleEmployee)}
+        onOpenChange={(open) => {
+          if (!open && !savingAttendanceSchedule) setAttendanceScheduleEmployee(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>设置员工打卡时间</DialogTitle>
+            <DialogDescription>
+              {attendanceScheduleEmployee?.name} 的缺卡判断将使用这里设置的时间；未单独设置的员工默认使用 08:30 和 17:30。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="attendance-check-in-time">上班打卡时间</Label>
+              <Input
+                id="attendance-check-in-time"
+                type="time"
+                value={attendanceScheduleForm.checkInTime}
+                onChange={(event) => setAttendanceScheduleForm((current) => ({
+                  ...current,
+                  checkInTime: event.target.value,
+                }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="attendance-check-out-time">下班打卡时间</Label>
+              <Input
+                id="attendance-check-out-time"
+                type="time"
+                value={attendanceScheduleForm.checkOutTime}
+                onChange={(event) => setAttendanceScheduleForm((current) => ({
+                  ...current,
+                  checkOutTime: event.target.value,
+                }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={savingAttendanceSchedule}
+              onClick={() => setAttendanceScheduleEmployee(null)}
+            >
+              取消
+            </Button>
+            <Button type="button" disabled={savingAttendanceSchedule} onClick={saveAttendanceSchedule}>
+              {savingAttendanceSchedule ? '保存中…' : '保存打卡时间'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showMissingPunchDialog} onOpenChange={setShowMissingPunchDialog}>
+        <DialogContent className="max-h-[85vh] sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="h-5 w-5" />
+              需要补卡提醒
+            </DialogTitle>
+            <DialogDescription>
+              每位员工的打卡时间可能不同，请按各自设置的上班、下班时间查看缺卡日期和时段。点击“去补卡”可直接编辑当天记录。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+            {attendanceMissingWarnings.map((warning) => (
+              <div key={`${warning.employeeId}-${warning.date}`} className="flex flex-col gap-3 rounded-lg border border-red-100 bg-red-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium text-slate-950">{warning.employeeName} · {warning.date}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {warning.missingPeriods.map((period) => (
+                      <span key={period} className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-red-600 ring-1 ring-red-200">
+                        缺 {missingPunchLabel(period, warning)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  className="shrink-0"
+                  onClick={() => {
+                    const [year, month, day] = warning.date.split('-').map(Number);
+                    openAttendanceEdit(
+                      warning.employeeId,
+                      warning.employeeName,
+                      year,
+                      month,
+                      day,
+                      warning.existingTimes,
+                    );
+                    setShowMissingPunchDialog(false);
+                  }}
+                >
+                  去补卡
+                </Button>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* 打卡记录编辑对话框 */}
       <Dialog open={showAttendanceEditDialog} onOpenChange={setShowAttendanceEditDialog}>
         <DialogContent className="sm:max-w-lg">

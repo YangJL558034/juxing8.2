@@ -384,6 +384,8 @@ export function initDatabase(dbInstance: Database.Database) {
       status TEXT DEFAULT '在职',
       location TEXT DEFAULT '车间',
       resign_date TEXT,
+      attendance_check_in_time TEXT DEFAULT '08:30',
+      attendance_check_out_time TEXT DEFAULT '17:30',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(name)
     );
@@ -878,6 +880,8 @@ export function initDatabase(dbInstance: Database.Database) {
       { name: 'status', definition: 'TEXT' },
       { name: 'location', definition: 'TEXT' },
       { name: 'resign_date', definition: 'TEXT' },
+      { name: 'attendance_check_in_time', definition: "TEXT DEFAULT '08:30'" },
+      { name: 'attendance_check_out_time', definition: "TEXT DEFAULT '17:30'" },
       { name: 'created_at', definition: 'DATETIME DEFAULT CURRENT_TIMESTAMP' },
       { name: 'hire_date', definition: 'TEXT' },
       { name: 'department_id', definition: 'INTEGER' },
