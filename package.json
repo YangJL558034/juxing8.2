@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
+    "build": "next build && tsup src/server.ts --format cjs --platform node --target node20 --outDir dist --no-splitting --no-minify",
     "dev": "tsx watch src/server.ts --dev",
     "preinstall": "npx only-allow pnpm",
     "lint": "eslint",
