@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, FileText, Loader2, Send, ShieldCheck, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +56,34 @@ export default function SocialSecurityPage() {
   const update = <K extends keyof SocialSecurityFormData>(field: K, value: SocialSecurityFormData[K]) => {
     setData((current) => ({ ...current, [field]: value }));
   };
+
+  useEffect(() => {
+    let active = true;
+    const restoreEmployeeIdentity = async () => {
+      try {
+        const saved = window.localStorage.getItem('employee-self-service-identity');
+        if (!saved) return;
+        const identity = JSON.parse(saved) as { name?: string; idCard?: string };
+        if (!identity.name || !identity.idCard) return;
+        const response = await fetch(`/api/employees/query?name=${encodeURIComponent(identity.name)}&idCard=${encodeURIComponent(identity.idCard)}`, { cache: 'no-store' });
+        const result = await response.json().catch(() => ({})) as { employee?: { name: string; id_card: string; phone?: string; department?: string; position?: string; hire_date?: string } };
+        if (!active || !response.ok || !result.employee) return;
+        setData((current) => ({
+          ...current,
+          name: current.name || result.employee?.name || identity.name || '',
+          idCard: current.idCard || result.employee?.id_card || identity.idCard || '',
+          phone: current.phone || result.employee?.phone || '',
+          department: current.department || result.employee?.department || '',
+          position: current.position || result.employee?.position || '',
+          hireDate: current.hireDate || result.employee?.hire_date || '',
+        }));
+      } catch {
+        // 无保存身份时保留手动填写流程。
+      }
+    };
+    void restoreEmployeeIdentity();
+    return () => { active = false; };
+  }, []);
 
   const submit = async () => {
     if (!canSubmit || submitting) return;

@@ -76,6 +76,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '身份证号码不能为空' }, { status: 400 });
     }
 
+    const employee = db.prepare('SELECT id, status FROM employees WHERE name = ? AND id_card = ?').get(data.name, data.idCard) as { id: number; status: string } | undefined;
+    if (!employee || employee.status === '离职') {
+      return NextResponse.json({ success: false, error: '员工身份验证失败' }, { status: 403 });
+    }
+    const onboarding = db.prepare(`
+      SELECT id FROM onboarding_records
+      WHERE (employee_id = ? OR (name = ? AND id_card = ?))
+        AND status IN ('待审核', '已审核')
+      ORDER BY id DESC LIMIT 1
+    `).get(employee.id, data.name, data.idCard) as { id: number } | undefined;
+    if (!onboarding) {
+      return NextResponse.json({ success: false, error: '请先完成入职登记后再填写社保申请' }, { status: 403 });
+    }
+
     const result = db.prepare(`
       INSERT INTO social_security_records (
         document_type, status, name, id_card, phone, department, position, hire_date, application_date, data_json

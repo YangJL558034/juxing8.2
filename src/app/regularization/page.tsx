@@ -174,6 +174,26 @@ export default function RegularizationPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadIdentity = async () => {
+      try {
+        const raw = window.localStorage.getItem('employee-self-service-identity');
+        if (!raw) return;
+        const identity = JSON.parse(raw) as { name?: string; idCard?: string };
+        if (!identity.name || !identity.idCard) return;
+        const response = await fetch(`/api/employees/query?name=${encodeURIComponent(identity.name)}&idCard=${encodeURIComponent(identity.idCard)}`);
+        const result = await response.json() as { employee?: { name?: string; department?: string | null; position?: string | null; hire_date?: string | null } };
+        if (cancelled || !result.employee) return;
+        setData((current) => ({ ...current, applicantName: result.employee?.name || identity.name || current.applicantName, department: result.employee?.department || current.department, position: result.employee?.position || current.position, hireDate: result.employee?.hire_date || current.hireDate }));
+      } catch {
+        // 用户仍可手动填写资料。
+      }
+    };
+    void loadIdentity();
+    return () => { cancelled = true; };
+  }, []);
+
   const canSubmit = useMemo(() => (
     data.applicantName.trim()
     && data.department.trim()

@@ -34,6 +34,35 @@ interface AttendanceRecord {
   month: number;
 }
 
+interface EmployeeServiceSummary {
+  onboarding: {
+    id: number;
+    status: string;
+    createdAt: string;
+    confidentialityConfirmed: boolean;
+  } | null;
+  socialSecurity: Array<{
+    id: number;
+    documentType: string;
+    status: string;
+    applicationDate: string | null;
+    createdAt: string;
+  }>;
+  socialSecurityPurchase: Array<{
+    id: number;
+    status: string;
+    insuranceStatus: string | null;
+    createdAt: string;
+  }>;
+  notifications: Array<{
+    id: number;
+    title: string;
+    content: string | null;
+    senderName: string | null;
+    createdAt: string;
+  }>;
+}
+
 function buildMissingPunchReminders(
   monthlyRecords: MonthlyRecordRow[],
   leaveRecords: ReturnType<typeof parseLeaveRequestRow>[],
@@ -219,6 +248,100 @@ export async function GET(request: NextRequest) {
       employee.attendance_check_out_time,
     );
 
+    const onboardingRow = db.prepare(`
+      SELECT id, status, data_json, created_at
+      FROM onboarding_records
+      WHERE employee_id = ? OR (name = ? AND id_card = ?)
+      ORDER BY id DESC
+      LIMIT 1
+    `).get(employee.id, employee.name, employee.id_card) as {
+      id: number;
+      status: string;
+      data_json: string | null;
+      created_at: string;
+    } | undefined;
+
+    let confidentialityConfirmed = false;
+    if (onboardingRow?.data_json) {
+      try {
+        const onboardingData = JSON.parse(onboardingRow.data_json) as Record<string, unknown>;
+        confidentialityConfirmed = onboardingData.confidentialityAgreementConfirmed === true
+          || Boolean(onboardingData.confidentialitySignatureDataUrl);
+      } catch {
+        // 旧入职数据无法解析时，仅展示记录状态。
+      }
+    }
+
+    const socialSecurityRows = db.prepare(`
+      SELECT id, document_type, status, application_date, created_at
+      FROM social_security_records
+      WHERE deleted_at IS NULL AND name = ? AND id_card = ?
+      ORDER BY id DESC
+      LIMIT 10
+    `).all(employee.name, employee.id_card) as Array<{
+      id: number;
+      document_type: string;
+      status: string;
+      application_date: string | null;
+      created_at: string;
+    }>;
+
+    const socialSecurityPurchaseRows = db.prepare(`
+      SELECT id, contract_status, insurance_status, created_at
+      FROM social_security_purchase_records
+      WHERE deleted_at IS NULL AND employee_name = ? AND id_card = ?
+      ORDER BY id DESC
+      LIMIT 10
+    `).all(employee.name, employee.id_card) as Array<{
+      id: number;
+      contract_status: string | null;
+      insurance_status: string | null;
+      created_at: string;
+    }>;
+
+    const notificationRows = db.prepare(`
+      SELECT id, title, content, sender_name, created_at
+      FROM notifications
+      WHERE receiver_name = ? OR receiver_name IN ('全体员工', '所有员工')
+      ORDER BY id DESC
+      LIMIT 20
+    `).all(employee.name) as Array<{
+      id: number;
+      title: string;
+      content: string | null;
+      sender_name: string | null;
+      created_at: string;
+    }>;
+
+    const serviceSummary: EmployeeServiceSummary = {
+      onboarding: onboardingRow ? {
+        id: onboardingRow.id,
+        status: onboardingRow.status,
+        createdAt: onboardingRow.created_at,
+        confidentialityConfirmed,
+      } : null,
+      socialSecurity: socialSecurityRows.map((row) => ({
+        id: row.id,
+        documentType: row.document_type,
+        status: row.status,
+        applicationDate: row.application_date,
+        createdAt: row.created_at,
+      })),
+      socialSecurityPurchase: socialSecurityPurchaseRows.map((row) => ({
+        id: row.id,
+        status: row.contract_status || '已提交',
+        insuranceStatus: row.insurance_status,
+        createdAt: row.created_at,
+      })),
+      notifications: notificationRows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        content: row.content,
+        senderName: row.sender_name,
+        createdAt: row.created_at,
+      })),
+    };
+
     // 用员工表的部门信息覆盖工资记录的部门信息（工资表部门可能为空）
     const salaryRecordsWithDept = monthlyRecords.map((record) => ({
       ...record,
@@ -234,6 +357,7 @@ export async function GET(request: NextRequest) {
       attendanceRecords: attendanceRecords,
       leaveRecords,
       missingPunchRecords,
+      serviceSummary,
     });
   } catch (error) {
     console.error('Query employee error:', error);

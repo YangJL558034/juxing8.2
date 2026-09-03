@@ -349,6 +349,34 @@ export default function LeaveRequestPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const restoreEmployeeIdentity = async () => {
+      try {
+        const saved = window.localStorage.getItem('employee-self-service-identity');
+        if (!saved) return;
+        const identity = JSON.parse(saved) as { name?: string; idCard?: string };
+        if (!identity.name || !identity.idCard) return;
+        const response = await fetch(`/api/employees/query?name=${encodeURIComponent(identity.name)}&idCard=${encodeURIComponent(identity.idCard)}`, { cache: 'no-store' });
+        const result = await response.json().catch(() => ({})) as { employee?: { id: number; name: string; id_card: string; phone?: string; department?: string; position?: string } };
+        if (!active || !response.ok || !result.employee) return;
+        setData(current => ({
+          ...current,
+          employeeId: current.employeeId ?? result.employee?.id ?? null,
+          employeeName: current.employeeName || result.employee?.name || identity.name || '',
+          idCard: current.idCard || normalizeIdCard(result.employee?.id_card || identity.idCard || ''),
+          phone: current.phone || normalizeMobile(result.employee?.phone || ''),
+          department: current.department || result.employee?.department || '',
+          position: current.position || result.employee?.position || '',
+        }));
+      } catch {
+        // 本地没有保存身份或查询失败时保留手动填写。
+      }
+    };
+    void restoreEmployeeIdentity();
+    return () => { active = false; };
+  }, []);
+
   const submit = async () => {
     if (!canSubmit || submitting) return;
     setSubmitting(true);

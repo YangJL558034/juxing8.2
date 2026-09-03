@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, FileText, IdCard, Loader2, Send, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +40,21 @@ export default function WorkCertificatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadIdentity = async () => {
+      try {
+      const raw = window.localStorage.getItem('employee-self-service-identity');
+      if (!raw) return;
+      const identity = JSON.parse(raw) as { name?: string; idCard?: string };
+      if (!identity.name || !identity.idCard) return;
+      const response = await fetch(`/api/employees/query?name=${encodeURIComponent(identity.name)}&idCard=${encodeURIComponent(identity.idCard)}`);
+      const result = await response.json() as { employee?: { name?: string; id_card?: string; gender?: string | null } };
+      setData((current) => ({ ...current, name: result.employee?.name || identity.name || current.name, idCard: result.employee?.id_card || identity.idCard || current.idCard, gender: (result.employee?.gender === '女' || result.employee?.gender === '男') ? result.employee.gender : current.gender }));
+      } catch { /* ignore invalid cached identity */ }
+    };
+    void loadIdentity();
+  }, []);
 
   const canSubmit = useMemo(() => data.name && data.gender && data.idCard, [data]);
   const update = <K extends keyof WorkCertificateFormData>(field: K, value: WorkCertificateFormData[K]) => {

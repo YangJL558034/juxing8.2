@@ -3,6 +3,23 @@
 
 @source not '../../data';
 
+@keyframes employee-fade-up {
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes employee-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.employee-page-enter { animation: employee-fade-up 380ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.employee-login-enter { animation: employee-scale-in 460ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .employee-page-enter, .employee-login-enter { animation: none; }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

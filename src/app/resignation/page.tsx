@@ -190,6 +190,24 @@ export default function ResignationPage() {
     setData((current) => ({ ...current, [field]: value }));
   };
 
+  // 员工从自助平台进入时复用已登录身份，随后由姓名和身份证自动查询并补齐入职资料。
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('employee-self-service-identity');
+      if (!raw) return;
+      const identity = JSON.parse(raw) as { name?: string; idCard?: string };
+      if (identity.name || identity.idCard) {
+        setData((current) => ({
+          ...current,
+          name: identity.name || current.name,
+          idCard: normalizeIdCard(identity.idCard || current.idCard),
+        }));
+      }
+    } catch {
+      // 忽略无效的本地身份缓存，用户仍可手动填写。
+    }
+  }, []);
+
   useEffect(() => {
     const name = data.name.trim();
     const idCard = normalizeIdCard(data.idCard);
