@@ -27,6 +27,7 @@ type EmbeddedFlow = 'leave' | 'social' | 'resignation' | 'work-certificate' | 'r
 interface Employee {
   id: number;
   employee_id?: string | null;
+  avatar_url?: string | null;
   name: string;
   gender?: string | null;
   id_card: string;
@@ -121,6 +122,7 @@ interface ServiceSummary {
     senderName: string | null;
     attachmentFile?: string | null;
     attachmentFileName?: string | null;
+    isRead?: boolean;
     createdAt: string;
   }>;
   resignationRecords?: Array<{ id: number; status: string; createdAt: string }>;
@@ -263,18 +265,14 @@ export default function EmployeeSelfServicePortal() {
   const [hasSignature, setHasSignature] = useState(false);
   const sessionRestoreAttempted = useRef(false);
 
-  useEffect(() => {
-    if (!data?.employee) return;
-    try { setAvatarUrl(window.localStorage.getItem(`employee-self-service-avatar:${data.employee.id_card}`) || ''); } catch { /* ignore */ }
-  }, [data?.employee]);
+  useEffect(() => { if (data?.employee) setAvatarUrl(data.employee.avatar_url || ''); }, [data?.employee]);
 
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
     if (file.size > 5 * 1024 * 1024) { setError('头像图片不能超过 5MB'); return; }
-    const reader = new FileReader();
-    reader.onload = () => { const value = String(reader.result || ''); setAvatarUrl(value); window.localStorage.setItem(`employee-self-service-avatar:${employee.id_card}`, value); };
-    reader.readAsDataURL(file);
+    const form = new FormData(); form.append('file', file); form.append('idCard', employee.id_card);
+    void fetch('/api/employee-self-service/avatar', { method: 'POST', body: form }).then(async (response) => { const result = await response.json() as { success?: boolean; avatarUrl?: string; error?: string }; if (!response.ok || !result.success || !result.avatarUrl) throw new Error(result.error || '头像上传失败'); setAvatarUrl(result.avatarUrl); }).catch((uploadError) => setError(uploadError instanceof Error ? uploadError.message : '头像上传失败'));
   };
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -303,6 +301,7 @@ export default function EmployeeSelfServicePortal() {
         serviceSummary: result.serviceSummary || emptyServiceSummary,
       };
       setData(portalData);
+      setReadNotificationIds(portalData.serviceSummary.notifications.filter((item) => item.isRead).map((item) => item.id));
       if (!preserveNavigation) {
         setActiveTab('home');
         setTabHistory(['home']);
@@ -399,6 +398,7 @@ export default function EmployeeSelfServicePortal() {
       if (current.includes(id)) return current;
       const next = [...current, id];
       window.localStorage.setItem('employee-self-service-read-notifications', JSON.stringify(next));
+      void fetch('/api/employee-self-service/notifications/read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, employeeName: employee.name }) });
       return next;
     });
   };

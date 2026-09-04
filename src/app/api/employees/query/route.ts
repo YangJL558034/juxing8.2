@@ -305,7 +305,7 @@ export async function GET(request: NextRequest) {
     const regularizationRows = db.prepare(`SELECT id, status, created_at FROM regularization_records WHERE deleted_at IS NULL AND applicant_name = ? ORDER BY id DESC LIMIT 10`).all(employee.name) as Array<{ id: number; status: string; created_at: string }>;
     const workCertificateRows = db.prepare(`SELECT id, status, created_at FROM work_certificate_records WHERE deleted_at IS NULL AND name = ? AND id_card = ? ORDER BY id DESC LIMIT 10`).all(employee.name, employee.id_card) as Array<{ id: number; status: string; created_at: string }>;
     const notificationRows = db.prepare(`
-      SELECT id, title, content, sender_name, attachment_file, attachment_file_name, created_at
+      SELECT id, title, content, sender_name, attachment_file, attachment_file_name, is_read, created_at
       FROM notifications
       WHERE receiver_name = ? OR receiver_name IN ('全体员工', '所有员工')
       ORDER BY id DESC
@@ -317,6 +317,7 @@ export async function GET(request: NextRequest) {
       sender_name: string | null;
       attachment_file: string | null;
       attachment_file_name: string | null;
+      is_read: number;
       created_at: string;
     }>;
 
@@ -350,6 +351,7 @@ export async function GET(request: NextRequest) {
         senderName: row.sender_name,
         attachmentFile: row.attachment_file,
         attachmentFileName: row.attachment_file_name,
+        isRead: row.is_read === 1,
         createdAt: row.created_at,
       })),
     };

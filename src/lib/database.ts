@@ -1968,6 +1968,8 @@ export function initDatabase(dbInstance: Database.Database) {
       created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
     )
   `);
+
+  try { dbInstance.exec('ALTER TABLE employees ADD COLUMN avatar_url TEXT'); } catch { /* 已存在 */ }
   
   // 添加 attachment_file 和 attachment_file_name 字段（如果不存在）
   try {
