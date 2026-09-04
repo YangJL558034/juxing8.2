@@ -1,6 +1,6 @@
 export type ResignationStatus = '待审核' | '已审核';
 
-export type ResignationType = '辞职' | '辞退' | '自离' | '开除' | '其他' | '';
+export type ResignationType = '辞职' | '辞退' | '自离' | '开除' | '急辞' | '其他' | '';
 
 export interface ResignationFormData {
   name: string;

@@ -51,7 +51,7 @@ export function createDefaultResignationData(): ResignationFormData {
 }
 
 function pickType(value: unknown): ResignationType {
-  return ['辞职', '辞退', '自离', '开除', '其他'].includes(String(value)) ? String(value) as ResignationType : '';
+  return ['辞职', '辞退', '自离', '开除', '急辞', '其他'].includes(String(value)) ? String(value) as ResignationType : '';
 }
 
 export function normalizeResignationData(value: unknown): ResignationFormData {

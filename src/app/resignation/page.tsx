@@ -353,12 +353,9 @@ export default function ResignationPage() {
                 <option value="辞退">辞退</option>
                 <option value="自离">自离</option>
                 <option value="开除">开除</option>
-                <option value="其他">其他</option>
+                <option value="急辞">急辞（自愿扣除20%工资）</option>
               </select>
             </div>
-            {data.resignationType === '其他' && (
-              <Field label="其他说明" value={data.resignationTypeOther} onChange={(value) => update('resignationTypeOther', value)} />
-            )}
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-800">
                 离职原因

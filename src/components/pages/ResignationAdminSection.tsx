@@ -348,7 +348,7 @@ export default function ResignationAdminSection() {
                 ['申请日期', formatDate(viewTarget.applyDate)],
                 ['正式离职日期', formatDate(viewTarget.resignationDate)],
                 ['交接日期', formatDate(viewTarget.handoverDate)],
-                ['离职类型', viewTarget.resignationType === '其他' ? `其他 ${viewTarget.data.resignationTypeOther}` : viewTarget.resignationType],
+                ['离职类型', viewTarget.resignationType === '其他' || viewTarget.resignationType === '急辞' ? '急辞（自愿扣除20%工资）' : viewTarget.resignationType],
                 ['状态', viewTarget.deletedAt ? '已删除' : viewTarget.status],
                 ['审核人', viewTarget.reviewerName],
                 ['审核时间', formatDateTime(viewTarget.reviewedAt)],
@@ -416,7 +416,7 @@ export default function ResignationAdminSection() {
                     <option value="辞退">辞退</option>
                     <option value="自离">自离</option>
                     <option value="开除">开除</option>
-                    <option value="其他">其他</option>
+                    <option value="急辞">急辞（自愿扣除20%工资）</option>
                   </select>
                 </div>
                 <Field label="其他说明" value={formData.resignationTypeOther} onChange={(value) => updateField('resignationTypeOther', value)} />

@@ -200,9 +200,12 @@ function signatureDrawingXml(relId: string): string {
 }
 
 function typeText(option: ResignationType, selected: ResignationType, other: string): string {
-  const checked = selected === option ? '√' : ' ';
+  const checked = selected === option || (option === '急辞' && selected === '其他') ? '√' : ' ';
+  if (option === '急辞' && (selected === '急辞' || selected === '其他')) {
+    return `急辞（自愿扣除20%工资）（${checked}）`;
+  }
   if (option === '其他' && selected === '其他' && other) {
-    return `其他（${other}）`;
+    return `急辞（自愿扣除20%工资）（${checked}）`;
   }
   return `${option}（${checked}）`;
 }
@@ -231,7 +234,7 @@ function fillTemplate(documentXml: string, record: ResignationRecord, signatureR
   }
 
   const selectedType = data.resignationType || record.resignationType || '';
-  const typeOptions: ResignationType[] = ['辞职', '辞退', '自离', '开除', '其他'];
+  const typeOptions: ResignationType[] = ['辞职', '辞退', '自离', '开除', '急辞'];
   typeOptions.forEach((type, index) => {
     nextXml = replaceGlobalRowCell(nextXml, 4, index + 1, (cellXml) => setCellFirstParagraph(cellXml, typeText(type, selectedType, data.resignationTypeOther)));
   });
