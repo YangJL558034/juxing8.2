@@ -8,6 +8,33 @@
   to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
+/* 员工自助平台版权信息：通过平台顶部通知按钮限定作用范围，显示在底部状态栏上方。 */
+body:has([aria-label='查看通知'])::after,
+body:has(nav[class*='max-w-[480px]'])::after {
+  content: '聚星数据平台-@东莞山泽新能源科技';
+  position: fixed;
+  inset-inline: 0;
+  bottom: 74px;
+  z-index: 35;
+  margin-inline: auto;
+  width: min(100%, 480px);
+  background: rgb(255 255 255 / 0.92);
+  padding: 4px 8px;
+  color: #94a3b8;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+@media (min-width: 640px) {
+  body:has([aria-label='查看通知'])::after,
+  body:has(nav[class*='max-w-[480px]'])::after {
+    bottom: 106px;
+  }
+}
+
 @keyframes employee-scale-in {
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }

@@ -10,8 +10,10 @@ export async function GET(
   try {
     const { filename } = await params;
     
-    // 从 public/uploads/notifications/ 目录读取文件
-    const filePath = path.join(process.cwd(), 'public', 'uploads', 'notifications', filename);
+    // 兼容通知中心上传到 public/uploads 以及历史 notifications 子目录的文件
+    const rootPath = path.join(process.cwd(), 'public', 'uploads', filename);
+    const legacyPath = path.join(process.cwd(), 'public', 'uploads', 'notifications', filename);
+    const filePath = existsSync(rootPath) ? rootPath : legacyPath;
     
     console.log(`[Download API] 尝试读取文件: ${filePath}`);
     

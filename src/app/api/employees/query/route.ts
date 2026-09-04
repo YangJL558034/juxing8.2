@@ -61,6 +61,9 @@ interface EmployeeServiceSummary {
     senderName: string | null;
     createdAt: string;
   }>;
+  resignationRecords: Array<{ id: number; status: string; createdAt: string }>;
+  regularizationRecords: Array<{ id: number; status: string; createdAt: string }>;
+  workCertificateRecords: Array<{ id: number; status: string; createdAt: string }>;
 }
 
 function buildMissingPunchReminders(
@@ -227,7 +230,6 @@ export async function GET(request: NextRequest) {
       SELECT *
       FROM leave_request_records
       WHERE deleted_at IS NULL
-        AND status = '已审核'
         AND (
           employee_id = ?
           OR id_card = ?
@@ -299,8 +301,11 @@ export async function GET(request: NextRequest) {
       created_at: string;
     }>;
 
+    const resignationRows = db.prepare(`SELECT id, status, created_at FROM resignation_records WHERE deleted_at IS NULL AND name = ? AND id_card = ? ORDER BY id DESC LIMIT 10`).all(employee.name, employee.id_card) as Array<{ id: number; status: string; created_at: string }>;
+    const regularizationRows = db.prepare(`SELECT id, status, created_at FROM regularization_records WHERE deleted_at IS NULL AND applicant_name = ? ORDER BY id DESC LIMIT 10`).all(employee.name) as Array<{ id: number; status: string; created_at: string }>;
+    const workCertificateRows = db.prepare(`SELECT id, status, created_at FROM work_certificate_records WHERE deleted_at IS NULL AND name = ? AND id_card = ? ORDER BY id DESC LIMIT 10`).all(employee.name, employee.id_card) as Array<{ id: number; status: string; created_at: string }>;
     const notificationRows = db.prepare(`
-      SELECT id, title, content, sender_name, created_at
+      SELECT id, title, content, sender_name, attachment_file, attachment_file_name, created_at
       FROM notifications
       WHERE receiver_name = ? OR receiver_name IN ('全体员工', '所有员工')
       ORDER BY id DESC
@@ -310,6 +315,8 @@ export async function GET(request: NextRequest) {
       title: string;
       content: string | null;
       sender_name: string | null;
+      attachment_file: string | null;
+      attachment_file_name: string | null;
       created_at: string;
     }>;
 
@@ -333,11 +340,16 @@ export async function GET(request: NextRequest) {
         insuranceStatus: row.insurance_status,
         createdAt: row.created_at,
       })),
+      resignationRecords: resignationRows.map((row) => ({ id: row.id, status: row.status, createdAt: row.created_at })),
+      regularizationRecords: regularizationRows.map((row) => ({ id: row.id, status: row.status, createdAt: row.created_at })),
+      workCertificateRecords: workCertificateRows.map((row) => ({ id: row.id, status: row.status, createdAt: row.created_at })),
       notifications: notificationRows.map((row) => ({
         id: row.id,
         title: row.title,
         content: row.content,
         senderName: row.sender_name,
+        attachmentFile: row.attachment_file,
+        attachmentFileName: row.attachment_file_name,
         createdAt: row.created_at,
       })),
     };

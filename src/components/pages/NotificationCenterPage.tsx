@@ -82,6 +82,7 @@ export default function NotificationCenterPage() {
   const [notifyReceiverIds, setNotifyReceiverIds] = useState<number[]>([]);
   const [notifyAll, setNotifyAll] = useState(false);
   const [sending, setSending] = useState(false);
+  const [employeePortalOnly, setEmployeePortalOnly] = useState(false);
   
   // 附件相关状态
   const [attachment, setAttachment] = useState<{ file: File | null; preview: string }>({ file: null, preview: '' });
@@ -200,6 +201,7 @@ export default function NotificationCenterPage() {
     setNotifyContent('');
     setNotifyReceiverIds([]);
     setNotifyAll(false);
+    setEmployeePortalOnly(false);
     setAttachment({ file: null, preview: '' });
     setUploadedFile(null);
     setNotifyDialogOpen(true);
@@ -284,6 +286,16 @@ export default function NotificationCenterPage() {
 
     setSending(true);
     try {
+      let attachmentPayload = uploadedFile;
+      if (attachment.file && !attachmentPayload) {
+        const formData = new FormData();
+        formData.append('file', attachment.file);
+        const token = localStorage.getItem('token');
+        const uploadResponse = await fetch('/api/upload', { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: formData });
+        const uploadResult = await uploadResponse.json() as { success?: boolean; fileUrl?: string; fileName?: string };
+        if (!uploadResponse.ok || !uploadResult.success || !uploadResult.fileUrl) throw new Error('附件上传失败，请重试');
+        attachmentPayload = { fileUrl: uploadResult.fileUrl, fileName: uploadResult.fileName || attachment.file.name, filePath: uploadResult.fileUrl };
+      }
       const res = await fetch('/api/notifications/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -291,7 +303,8 @@ export default function NotificationCenterPage() {
           title: notifyTitle,
           content: notifyContent,
           receiverIds: notifyAll ? 'all' : notifyReceiverIds,
-          attachment: uploadedFile,
+          skipEmail: employeePortalOnly,
+          attachment: attachmentPayload,
         }),
       });
       const data = await res.json();
@@ -358,6 +371,9 @@ export default function NotificationCenterPage() {
           <h1 className="text-2xl font-bold text-slate-800">通知中心</h1>
           <p className="text-slate-500 mt-1">管理系统通知，发送消息给用户</p>
         </div>
+        <Button onClick={() => { handleOpenNotify(); setNotifyAll(true); setEmployeePortalOnly(true); }} className="bg-blue-600 hover:bg-blue-700">
+          <Bell className="mr-2 h-4 w-4" />发送员工平台通知（全员）
+        </Button>
       </div>
 
       {/* 统计卡片 */}
@@ -759,7 +775,7 @@ export default function NotificationCenterPage() {
                   }}
                 />
                 <Label htmlFor="notify-all" className="cursor-pointer">
-                  发送给全部用户 ({users.length}人)
+                  {employeePortalOnly ? "发送给全部在职员工" : `发送给全部用户 (${users.length}人)`}
                 </Label>
               </div>
             </div>

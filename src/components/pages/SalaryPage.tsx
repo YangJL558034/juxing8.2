@@ -73,6 +73,7 @@ interface WorkHourRecord {
 
 interface Employee {
   id: number;
+  employee_id?: string | null;
   name: string;
   phone: string;
   id_card?: string;
@@ -1514,6 +1515,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead>工号</TableHead>
                           <TableHead>姓名</TableHead>
                           <TableHead>手机号</TableHead>
                           <TableHead>身份证号</TableHead>
@@ -1529,6 +1531,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                           return empLocation === employeeLocation && (emp.status === '在职' || !emp.status);
                         }).map((emp) => (
                           <TableRow key={emp.id}>
+                            <TableCell className="font-medium">{emp.employee_id || emp.id}</TableCell>
                             <TableCell className="font-medium">{emp.name}</TableCell>
                             <TableCell>{emp.phone || '-'}</TableCell>
                             <TableCell>{emp.id_card || '-'}</TableCell>
@@ -1577,7 +1580,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                           return empLocation === employeeLocation && (emp.status === '在职' || !emp.status);
                         }).length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground py-4">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground py-4">
                               暂无在职员工
                             </TableCell>
                           </TableRow>

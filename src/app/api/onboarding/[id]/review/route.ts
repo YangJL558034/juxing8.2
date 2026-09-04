@@ -60,6 +60,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         data.hireDate || null,
       );
       employeeId = Number(result.lastInsertRowid);
+      db.prepare('UPDATE employees SET employee_id = ? WHERE id = ?').run(String(employeeId), employeeId);
     } else {
       db.prepare(`
         UPDATE employees
@@ -85,6 +86,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         data.hireDate || null,
         employeeId,
       );
+      db.prepare("UPDATE employees SET employee_id = COALESCE(NULLIF(employee_id, ''), ?) WHERE id = ?").run(String(employeeId), employeeId);
     }
 
     db.prepare(`

@@ -13,7 +13,7 @@ interface User {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, content, receiverIds, senderId, senderName, sendEmailOnly, specificEmail, attachment } = body;
+    const { title, content, receiverIds, senderId, senderName, sendEmailOnly, specificEmail, attachment, skipEmail } = body;
 
     console.log('[Notification API] 收到请求:', {
       title,
@@ -89,8 +89,14 @@ export async function POST(request: NextRequest) {
     let receivers: User[] = [];
     
     if (receiverIds === 'all') {
-      // 发送给所有非管理员用户
-      receivers = allUsers.filter(u => u.username !== 'admin');
+      // 员工平台通知发送给所有在职员工，不受其是否拥有系统用户账号限制。
+      const activeEmployees = db.prepare(`
+        SELECT id, name, phone AS username
+        FROM employees
+        WHERE COALESCE(status, '在职') NOT IN ('离职', '已离职')
+          AND TRIM(name) <> '' AND TRIM(COALESCE(id_card, '')) <> ''
+      `).all() as User[];
+      receivers = activeEmployees;
     } else if (Array.isArray(receiverIds) && receiverIds.length > 0) {
       // 发送给指定用户
       receivers = receiverIds.map((id: number) => {
@@ -144,7 +150,7 @@ export async function POST(request: NextRequest) {
       let emailSent = false;
       let emailError: string | undefined;
       
-      if (receiver.email) {
+      if (!skipEmail && receiver.email) {
         // 构建邮件内容
         let emailContent = `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">${title}</h2>

@@ -232,7 +232,7 @@ export default function ResignationPage() {
         if (!response.ok || !result.success || !result.employee) {
           setLookupState('missing');
           setLookupMessage(result.error || '未找到匹配的入职信息');
-          setData((current) => ({ ...current, employeeNo: '', department: '', position: '', hireDate: '', contractEndDate: '' }));
+          // 未匹配到档案时保留资料字段，允许员工手动补充。
           return;
         }
         const employee = result.employee;
@@ -324,11 +324,11 @@ export default function ResignationPage() {
               {lookupState === 'loading' && <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" />}
               {lookupMessage}
             </div>
-            <Field label="工号" required readOnly value={data.employeeNo} onChange={() => {}} />
-            <Field label="部门" required readOnly value={data.department} onChange={() => {}} />
-            <Field label="职位" required readOnly value={data.position} onChange={() => {}} />
-            <Field label="入职日期" required readOnly type="date" value={data.hireDate} onChange={() => {}} />
-            <Field label="合同到期" readOnly type="date" value={data.contractEndDate} onChange={() => {}} />
+            <Field label="工号" required value={data.employeeNo} onChange={(value) => update('employeeNo', value)} />
+            <Field label="部门" required value={data.department} onChange={(value) => update('department', value)} />
+            <Field label="职位" required value={data.position} onChange={(value) => update('position', value)} />
+            <Field label="入职日期" required type="date" value={data.hireDate} onChange={(value) => update('hireDate', value)} />
+            <Field label="合同到期" type="date" value={data.contractEndDate} onChange={(value) => update('contractEndDate', value)} />
           </div>
         </section>
 
