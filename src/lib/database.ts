@@ -1986,9 +1986,11 @@ export function initDatabase(dbInstance: Database.Database) {
     CREATE TABLE IF NOT EXISTS employee_self_service_managers (
       location TEXT PRIMARY KEY,
       user_id INTEGER NOT NULL,
+      employee_id INTEGER,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  try { dbInstance.exec('ALTER TABLE employee_self_service_managers ADD COLUMN employee_id INTEGER'); } catch { /* 已存在 */ }
   dbInstance.exec(`
     CREATE INDEX IF NOT EXISTS idx_notifications_receiver_created ON notifications(receiver_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_notifications_employee_recipient ON notifications(employee_recipient_id, created_at DESC);

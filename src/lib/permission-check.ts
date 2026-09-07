@@ -38,7 +38,7 @@ export function canReviewPersonnel(user: User | null | undefined, department?: s
     : department
       ? (db.prepare('SELECT location FROM employees WHERE department = ? LIMIT 1').get(department) as { location?: string } | undefined)?.location
       : undefined;
-  if (assignedLocation && db.prepare('SELECT 1 FROM employee_self_service_managers WHERE location = ? AND user_id = ?').get(assignedLocation, user.id)) return true;
+  if (assignedLocation && db.prepare('SELECT 1 FROM employee_self_service_managers WHERE location = ? AND (user_id = ? OR employee_id = ?)').get(assignedLocation, user.id, user.employee_id || 0)) return true;
   if (user.role !== 'manager' && user.role !== 'dept_manager') return false;
   if (department && user.department && department === user.department) return true;
   if (department && user.department) {

@@ -9,6 +9,7 @@ const JWT_SECRET = new TextEncoder().encode(
 
 export interface User {
   id: number;
+  employee_id?: number | null;
   username: string;
   name: string;
   avatar?: string;
@@ -18,6 +19,7 @@ export interface User {
 
 interface AuthUserRow {
   id: number;
+  employee_id?: number | null;
   username: string;
   password?: string;
   name: string;
@@ -29,6 +31,7 @@ interface AuthUserRow {
 function toAuthUser(user: AuthUserRow): User {
   return {
     id: user.id,
+    employee_id: (user as AuthUserRow & { employee_id?: number | null }).employee_id,
     username: user.username,
     name: user.name,
     avatar: user.avatar || undefined,
