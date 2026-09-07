@@ -6,6 +6,7 @@ export interface ItemInventoryRecord {
   quantity: number;
   unitPrice: number;
   remark: string;
+  imageUrl?: string;
   claimedQuantity: number;
   pendingQuantity: number;
   remainingQuantity: number;

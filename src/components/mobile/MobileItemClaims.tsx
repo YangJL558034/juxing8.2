@@ -56,6 +56,7 @@ const emptyStockForm = {
   quantity: '',
   unitPrice: '',
   remark: '',
+  imageUrl: '',
 };
 
 function display(value?: string | number | null) {
@@ -170,6 +171,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
           quantity: stockForm.quantity,
           unitPrice: stockForm.unitPrice,
           remark: stockForm.remark,
+          imageUrl: stockForm.imageUrl,
         }),
       });
       const result = await response.json().catch(() => ({})) as MutateItemResponse;
@@ -367,6 +369,15 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
               onChange={(event) => setStockForm((current) => ({ ...current, remark: event.target.value }))}
               placeholder="备注"
             />
+            <Input type="file" accept="image/*" capture="environment" className="h-12 rounded-2xl bg-white pt-3" onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              if (file.size > 2 * 1024 * 1024) { alert('图片不能超过 2MB'); event.target.value = ''; return; }
+              const reader = new FileReader();
+              reader.onload = () => setStockForm((current) => ({ ...current, imageUrl: String(reader.result || '') }));
+              reader.readAsDataURL(file);
+            }} />
+            {stockForm.imageUrl && <img src={stockForm.imageUrl} alt="物品预览" className="h-24 w-full rounded-xl object-cover" />}
             <Button className="h-12 w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700" onClick={submitStock} disabled={stocking}>
               {stocking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PackageCheck className="mr-2 h-4 w-4" />}
               提交入库
@@ -438,9 +449,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
           {!loading && items.map((item) => (
             <article key={item.id} className="rounded-[18px] border border-slate-100 bg-white p-2 shadow-sm">
               <div className="flex flex-col gap-2">
-                <div className="flex h-24 w-full items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-blue-50 text-4xl">
-                  📦
-                </div>
+                {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="h-24 w-full rounded-xl object-cover" /> : <div className="flex h-24 w-full items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-blue-50 text-4xl">📦</div>}
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-lg font-semibold text-slate-950">{item.name}</h3>
                   <p className="mt-1 truncate text-xs text-slate-500">{display(item.category)} {item.remark ? `· ${item.remark}` : ''}</p>

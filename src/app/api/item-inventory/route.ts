@@ -16,6 +16,7 @@ interface ItemInventoryRow {
   quantity: number | null;
   unit_price: number | null;
   remark: string | null;
+  image_url?: string | null;
   claimed_quantity: number | null;
   pending_quantity: number | null;
   created_at: string;
@@ -29,6 +30,7 @@ interface CreateItemBody {
   quantity?: unknown;
   unitPrice?: unknown;
   remark?: unknown;
+  imageUrl?: unknown;
 }
 
 function asText(value: unknown) {
@@ -53,6 +55,7 @@ function mapItem(row: ItemInventoryRow): ItemInventoryRecord {
     quantity,
     unitPrice,
     remark: row.remark || '',
+    imageUrl: row.image_url || '',
     claimedQuantity,
     pendingQuantity,
     remainingQuantity: quantity,
@@ -127,15 +130,16 @@ export async function POST(request: NextRequest) {
     const quantity = Math.floor(asNonNegativeNumber(body.quantity));
     const unitPrice = asNonNegativeNumber(body.unitPrice);
     const remark = asText(body.remark);
+    const imageUrl = asText(body.imageUrl);
 
     if (!name) {
       return NextResponse.json({ success: false, error: '请填写物品名称' }, { status: 400 });
     }
 
     const result = db.prepare(`
-      INSERT INTO item_inventory (name, category, unit, quantity, unit_price, remark)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(name, category, unit, quantity, unitPrice, remark);
+      INSERT INTO item_inventory (name, category, unit, quantity, unit_price, remark, image_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(name, category, unit, quantity, unitPrice, remark, imageUrl);
 
     const row = db.prepare(`
       SELECT i.*, 0 AS claimed_quantity, 0 AS pending_quantity

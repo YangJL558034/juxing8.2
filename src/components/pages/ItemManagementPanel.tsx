@@ -74,6 +74,7 @@ const emptyItemForm = {
   quantity: '',
   unitPrice: '',
   remark: '',
+  imageUrl: '',
 };
 
 function display(value?: string | number | null) {
@@ -260,6 +261,7 @@ export default function ItemManagementPanel() {
       quantity: String(item.remainingQuantity),
       unitPrice: String(item.unitPrice),
       remark: item.remark,
+      imageUrl: item.imageUrl || '',
     });
     setItemDialogOpen(true);
   };
@@ -316,6 +318,7 @@ export default function ItemManagementPanel() {
           quantity: itemForm.quantity,
           unitPrice: itemForm.unitPrice,
           remark: itemForm.remark,
+          imageUrl: itemForm.imageUrl,
         }),
       });
       const result = await response.json().catch(() => ({})) as MutateItemResponse;
@@ -725,6 +728,24 @@ export default function ItemManagementPanel() {
               placeholder="物品名称"
               className="sm:col-span-2"
             />
+            <Input
+              type="file"
+              accept="image/*"
+              className="sm:col-span-2"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                if (file.size > 2 * 1024 * 1024) {
+                  alert('图片不能超过 2MB');
+                  event.target.value = '';
+                  return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => setItemForm((current) => ({ ...current, imageUrl: String(reader.result || '') }));
+                reader.readAsDataURL(file);
+              }}
+            />
+            {itemForm.imageUrl && <img src={itemForm.imageUrl} alt="物品预览" className="h-24 w-24 rounded-xl object-cover" />}
             <Input
               value={itemForm.category}
               onChange={(event) => setItemForm((current) => ({ ...current, category: event.target.value }))}

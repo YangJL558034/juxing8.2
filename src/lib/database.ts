@@ -989,6 +989,7 @@ export function initDatabase(dbInstance: Database.Database) {
     ]);
     ensureColumns(dbInstance, 'item_inventory', [
       { name: 'deleted_at', definition: 'DATETIME' },
+      { name: 'image_url', definition: "TEXT DEFAULT ''" },
     ]);
     ensureColumns(dbInstance, 'dormitory_records', [
       { name: 'status', definition: 'TEXT' },
