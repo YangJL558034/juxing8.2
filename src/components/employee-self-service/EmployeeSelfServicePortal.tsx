@@ -28,6 +28,7 @@ interface Employee {
   id: number;
   employee_id?: string | null;
   avatar_url?: string | null;
+  isSelfServiceManager?: boolean;
   name: string;
   gender?: string | null;
   id_card: string;
@@ -259,11 +260,18 @@ export default function EmployeeSelfServicePortal() {
   const [notificationAutoOnlyLatest, setNotificationAutoOnlyLatest] = useState(false);
   const [applicationDrawerOpen, setApplicationDrawerOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<number[]>([]);
+  const [managerApplications, setManagerApplications] = useState<Array<{ id: number; type: string; employeeName: string; department?: string; status: string; createdAt: string }>>([]);
   const [signRecord, setSignRecord] = useState<SalaryRecord | null>(null);
   const [signing, setSigning] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const sessionRestoreAttempted = useRef(false);
+
+  const loadManagerApplications = async () => {
+    const response = await fetch('/api/employee-self-service/manager/applications', { cache: 'no-store' });
+    const payload = await response.json() as { records?: Array<{ id: number; type: string; employeeName: string; department?: string; status: string; createdAt: string }> };
+    setManagerApplications(payload.records || []);
+  };
 
   useEffect(() => {
     if (!data?.employee) return;
@@ -326,6 +334,7 @@ export default function EmployeeSelfServicePortal() {
         serviceSummary: result.serviceSummary || emptyServiceSummary,
       };
       setData(portalData);
+      if (portalData.employee.isSelfServiceManager) void loadManagerApplications();
       setReadNotificationIds(portalData.serviceSummary.notifications.filter((item) => item.isRead).map((item) => item.id));
       if (!preserveNavigation) {
         setActiveTab('home');

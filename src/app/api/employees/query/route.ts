@@ -373,9 +373,10 @@ export async function GET(request: NextRequest) {
       department: employee.department || record.department || ''
     }));
 
+    const managerAssignment = db.prepare('SELECT 1 FROM employee_self_service_managers WHERE location = ? AND employee_id = ?').get(employee.location, employee.id);
     const response = NextResponse.json({
       success: true, 
-      employee,
+      employee: { ...employee, isSelfServiceManager: Boolean(managerAssignment) },
       workRecords: [],
       salaryRecords: salaryRecordsWithDept,
       monthlyRecords: salaryRecordsWithDept,
