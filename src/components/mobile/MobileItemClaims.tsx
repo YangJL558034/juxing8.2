@@ -459,17 +459,17 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
       }
 
       {
-      <section id="item-claim-history" className={cn('space-y-3', activeNav === 'claims' ? '' : 'hidden')}>
+      <section id="item-claim-history" className={cn('space-y-3', activeNav === 'claims' || activeNav === 'apply' ? '' : 'hidden')}>
         <div className="flex items-center justify-between px-1">
-          <h2 className="text-base font-semibold text-slate-950">{canManage ? '领用记录' : '我的领用'}</h2>
-          <span className="text-sm text-slate-500">{claims.length} 条</span>
+          <h2 className="text-base font-semibold text-slate-950">{activeNav === 'apply' ? '申请中的物品' : canManage ? '领用记录' : '我的领用'}</h2>
+          <span className="text-sm text-slate-500">{claims.filter((claim) => activeNav === 'claims' ? claim.status === '已审核' : claim.status !== '已审核').length} 条</span>
         </div>
 
-        {!loading && claims.length === 0 && (
+        {!loading && claims.filter((claim) => activeNav === 'claims' ? claim.status === '已审核' : claim.status !== '已审核').length === 0 && (
           <div className="rounded-[24px] border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">暂无领用记录</div>
         )}
 
-        {claims.map((claim) => (
+        {claims.filter((claim) => activeNav === 'claims' ? claim.status === '已审核' : claim.status !== '已审核').map((claim) => (
           <article
             key={claim.id}
             className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm transition active:scale-[0.99]"
