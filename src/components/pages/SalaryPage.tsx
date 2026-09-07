@@ -1484,7 +1484,8 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                   <Users className="h-5 w-5" />
                   员工列表
                 </CardTitle>
-                <CardDescription>管理员工信息，员工可通过姓名和手机号自助查询工时和工资</CardDescription>
+                 <CardDescription>管理员工信息，员工可通过姓名和手机号自助查询工时和工资</CardDescription>
+                 <p className="mt-1 text-xs font-medium text-blue-600">员工自助平台管理者（与系统后台管理员无关）</p>
               </div>
               <div className="flex items-center gap-2">
                 <Button
