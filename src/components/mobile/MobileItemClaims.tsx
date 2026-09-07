@@ -255,7 +255,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false 
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold text-blue-600">行政管理</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-normal">{canManage && !standaloneRequest ? '物品管理' : '物品领用申请'}</h1>
+            <h1 className="mt-1 text-2xl font-bold tracking-normal">{canManage && !standaloneRequest ? '物品管理' : '物品领用'}</h1>
             <p className="mt-2 text-sm text-slate-600">
               {canManage ? '查看物品剩余、领用数量和待审核申请。' : '选择物品并提交领用申请。'}
             </p>
@@ -420,8 +420,8 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false 
       {error && <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {
-        <section className="space-y-3">
-          <div className="flex items-center justify-between px-1">
+        <section className="grid grid-cols-2 gap-2">
+          <div className="col-span-2 flex items-center justify-between px-1">
             <h2 className="text-base font-semibold text-slate-950">库存物品</h2>
             <span className="text-sm text-slate-500">{items.length} 类</span>
           </div>
@@ -434,30 +434,22 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false 
           )}
 
           {!loading && items.map((item) => (
-            <article key={item.id} className="rounded-[24px] border border-slate-100 bg-white p-3 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-blue-50 text-3xl">
+            <article key={item.id} className="rounded-[18px] border border-slate-100 bg-white p-2 shadow-sm">
+              <div className="flex flex-col gap-2">
+                <div className="flex h-24 w-full items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-blue-50 text-4xl">
                   📦
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-lg font-semibold text-slate-950">{item.name}</h3>
-                  <p className="mt-1 truncate text-sm text-slate-500">{display(item.category)} / 单价 ￥{item.unitPrice}</p>
+                  <p className="mt-1 truncate text-xs text-slate-500">{display(item.category)} {item.remark ? `· ${item.remark}` : ''}</p>
                 </div>
               </div>
-              <div className="mt-4 flex items-center justify-between gap-3 text-sm">
-                <div className="rounded-2xl bg-slate-50 p-3">
+              <div className="mt-2 flex items-center justify-between gap-1 text-xs">
+                <div className="rounded-xl bg-slate-50 p-2">
                   <div className="text-xs text-slate-400">剩余</div>
                   <div className="mt-1 font-medium text-slate-900">{item.remainingQuantity}{item.unit}</div>
                 </div>
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <div className="text-xs text-slate-400">已领用</div>
-                  <div className="mt-1 font-medium text-slate-900">{item.claimedQuantity}{item.unit}</div>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <div className="text-xs text-slate-400">待审</div>
-                  <div className="mt-1 font-medium text-slate-900">{item.pendingQuantity}{item.unit}</div>
-                </div>
-                <Button size="sm" className="rounded-full bg-blue-600 px-4" onClick={() => { setClaimForm((current) => ({ ...current, itemId: String(item.id) })); setClaimOpen(true); }}>立即领用</Button>
+                <Button size="sm" className="rounded-full bg-blue-600 px-2 text-xs" onClick={() => { setClaimForm((current) => ({ ...current, itemId: String(item.id) })); setClaimOpen(true); }}>立即领用</Button>
               </div>
             </article>
           ))}
