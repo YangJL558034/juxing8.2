@@ -39,6 +39,13 @@ function asNonNegativeNumber(value: unknown) {
   return Number.isFinite(numberValue) && numberValue >= 0 ? numberValue : 0;
 }
 
+function asImageUrl(value: unknown) {
+  const image = asText(value);
+  if (!image) return '';
+  if (!/^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(image) || image.length > 3_000_000) return '';
+  return image;
+}
+
 function mapItem(row: ItemInventoryRow): ItemInventoryRecord {
   const quantity = Number(row.quantity || 0);
   const unitPrice = Number(row.unit_price || 0);
@@ -113,7 +120,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     const quantity = Math.floor(asNonNegativeNumber(body.quantity));
     const unitPrice = asNonNegativeNumber(body.unitPrice);
     const remark = asText(body.remark);
-    const imageUrl = asText(body.imageUrl);
+    const imageUrl = asImageUrl(body.imageUrl);
 
     if (!name) {
       return NextResponse.json({ success: false, error: '请填写物品名称' }, { status: 400 });
