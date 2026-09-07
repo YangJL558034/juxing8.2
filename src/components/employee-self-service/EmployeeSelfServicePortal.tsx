@@ -6,7 +6,7 @@ import {
   CheckCircle2, ChevronRight, CircleUserRound, Clock3, FileCheck2, FileText,
   Fingerprint, HandCoins, Home, IdCard, LoaderCircle, LogOut, MapPin,
   Megaphone, MessageCircleMore, ReceiptText, RotateCcw, Search, ShieldCheck,
-  TimerReset, UserRound, WalletCards,
+  TimerReset, UserRound, WalletCards, Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -19,10 +19,11 @@ import SocialSecurityPage from '@/app/social-security/page';
 import ResignationPage from '@/app/resignation/page';
 import WorkCertificatePage from '@/app/work-certificate/page';
 import RegularizationPage from '@/app/regularization/page';
+import MobileItemClaims from '@/components/mobile/MobileItemClaims';
 
 type PortalTab = 'home' | 'salary' | 'attendance' | 'work-hours' | 'services' | 'profile' | 'reviews';
 type ServiceTab = 'leave' | 'social-security' | 'agreement';
-type EmbeddedFlow = 'leave' | 'social' | 'resignation' | 'work-certificate' | 'regularization' | null;
+type EmbeddedFlow = 'leave' | 'social' | 'resignation' | 'work-certificate' | 'regularization' | 'item-claim' | null;
 
 interface Employee {
   id: number;
