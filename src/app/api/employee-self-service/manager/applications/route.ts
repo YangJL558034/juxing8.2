@@ -3,7 +3,8 @@ import { db } from '@/lib/database';
 import { getEmployeeSession } from '@/lib/employee-session';
 
 function managerLocation(employeeId: number) {
-  return (db.prepare('SELECT location FROM employees WHERE id = ?').get(employeeId) as { location?: string } | undefined)?.location;
+  const location = (db.prepare('SELECT location FROM employees WHERE id = ?').get(employeeId) as { location?: string } | undefined)?.location;
+  return String(location || '').trim().toLowerCase() === 'workshop' || location === '车间' ? 'workshop' : 'office';
 }
 
 export async function GET(request: NextRequest) {

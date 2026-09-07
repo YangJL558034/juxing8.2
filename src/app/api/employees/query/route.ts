@@ -7,6 +7,11 @@ import {
   type LeaveRequestDbRow,
 } from '@/lib/leave-records';
 import { chinaNowSql, chinaToday } from '@/lib/china-time';
+
+function normalizeLocation(value?: string | null): 'office' | 'workshop' {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'workshop' || value === '车间' ? 'workshop' : 'office';
+}
 import {
   createMissingPunchReminder,
   extractAttendanceTimes,
@@ -373,7 +378,7 @@ export async function GET(request: NextRequest) {
       department: employee.department || record.department || ''
     }));
 
-    const managerAssignment = db.prepare('SELECT 1 FROM employee_self_service_managers WHERE location = ? AND employee_id = ?').get(employee.location, employee.id);
+    const managerAssignment = db.prepare('SELECT 1 FROM employee_self_service_managers WHERE location = ? AND employee_id = ?').get(normalizeLocation(employee.location), employee.id);
     const response = NextResponse.json({
       success: true, 
       employee: { ...employee, isSelfServiceManager: Boolean(managerAssignment) },
