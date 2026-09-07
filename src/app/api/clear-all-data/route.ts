@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
+import { getCurrentUser } from '@/lib/auth';
+import { hasPermission } from '@/lib/permission-check';
 
 // 清空所有数据（GET请求方便直接访问）
 export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser(request.headers.get('cookie'));
+    if (!user || !hasPermission(user, 'administration')) {
+      return NextResponse.json({ success: false, error: '无权执行数据清空操作' }, { status: 403 });
+    }
     // 清空所有数据表（保留用户表）
     db.exec('DELETE FROM work_hours_monthly');
     db.exec('DELETE FROM employee_salary_records');
