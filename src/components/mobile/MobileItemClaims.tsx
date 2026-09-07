@@ -139,8 +139,8 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
   }, [claimForm.itemId, items]);
 
   const showStockControls = canManage && !standaloneRequest;
-  const showClaimControls = true;
-  const claimFormOpen = claimOpen;
+  const showClaimControls = !standaloneRequest;
+  const claimFormOpen = standaloneRequest || claimOpen;
 
   const openClaimDetail = (claim: ItemClaimRecord) => {
     setSelectedClaim(claim);
