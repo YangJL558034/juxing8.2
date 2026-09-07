@@ -35,8 +35,19 @@ export function canReviewPersonnel(user: User | null | undefined, department?: s
   if (user.role === 'admin' || user.role === 'super_admin') return true;
   if (user.role !== 'manager' && user.role !== 'dept_manager') return false;
   if (department && user.department && department === user.department) return true;
+  if (department && user.department) {
+    const sameDepartment = db.prepare(`
+      SELECT 1 FROM departments d
+      WHERE d.name = ? AND (CAST(d.id AS TEXT) = ? OR d.name = ?)
+    `).get(department, user.department, user.department);
+    if (sameDepartment) return true;
+  }
   if (employeeId) {
-    const subordinate = db.prepare('SELECT 1 FROM employees WHERE id = ? AND manager_id = ?').get(employeeId, user.id);
+    const subordinate = db.prepare(`
+      SELECT 1 FROM employees e
+      LEFT JOIN departments d ON CAST(d.id AS TEXT) = e.department
+      WHERE e.id = ? AND (e.manager_id = ? OR e.department = ? OR d.name = ?)
+    `).get(employeeId, user.id, user.department || '', user.department || '');
     if (subordinate) return true;
   }
   return false;
