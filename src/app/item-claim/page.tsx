@@ -5,9 +5,6 @@ import MobileItemClaims from '@/components/mobile/MobileItemClaims';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
 export default function ItemClaimPage() {
   const [name, setName] = useState('');
   const [idCard, setIdCard] = useState('');
