@@ -251,7 +251,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       <section className="mobile-ios-glass rounded-[30px] p-5 text-slate-950">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -458,7 +458,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
       }
 
       {
-      <section className="space-y-3">
+      <section id="item-claim-history" className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-base font-semibold text-slate-950">{canManage ? '领用记录' : '我的领用'}</h2>
           <span className="text-sm text-slate-500">{claims.length} 条</span>
@@ -522,6 +522,9 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
       </section>
       }
 
+      <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto grid w-full max-w-md grid-cols-4 border-t border-slate-200 bg-white/95 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
+        {[['首页', '⌂'], ['领用记录', '▤'], ['我的申请', '♙'], ['个人中心', '⚙']].map(([label, icon], index) => <button key={label} type="button" onClick={() => { if (index === 1 || index === 2) document.getElementById('item-claim-history')?.scrollIntoView({ behavior: 'smooth' }); }} className={`flex flex-col items-center gap-1 py-1 text-[10px] ${index === 0 ? 'font-semibold text-blue-600' : 'text-slate-500'}`}><span className="text-lg leading-5">{icon}</span>{label}</button>)}
+      </nav>
       <Sheet open={claimDetailOpen} onOpenChange={setClaimDetailOpen}>
         <SheetContent side="bottom" className="max-h-[86dvh] rounded-t-[26px] p-0">
           <SheetHeader className="border-b border-slate-100 px-4 py-4 text-left">
