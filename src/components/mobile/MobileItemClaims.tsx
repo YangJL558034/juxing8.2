@@ -290,7 +290,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
         )}
       </section>
 
-      <section className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
+      <section id="item-claim-form" className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
         {showClaimControls && (
         <div className={cn('grid gap-2', showStockControls ? 'grid-cols-2' : 'grid-cols-1')}>
           {showStockControls && (
@@ -523,7 +523,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
       }
 
       <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto grid w-full max-w-md grid-cols-4 border-t border-slate-200 bg-white/95 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
-        {[['首页', '⌂'], ['领用记录', '▤'], ['我的申请', '♙'], ['个人中心', '⚙']].map(([label, icon], index) => <button key={label} type="button" onClick={() => { if (index === 1 || index === 2) document.getElementById('item-claim-history')?.scrollIntoView({ behavior: 'smooth' }); }} className={`flex flex-col items-center gap-1 py-1 text-[10px] ${index === 0 ? 'font-semibold text-blue-600' : 'text-slate-500'}`}><span className="text-lg leading-5">{icon}</span>{label}</button>)}
+        {[['首页', '⌂'], ['领用记录', '▤'], ['我的申请', '♙'], ['个人中心', '⚙']].map(([label, icon], index) => <button key={label} type="button" onClick={() => { if (index === 1) document.getElementById('item-claim-history')?.scrollIntoView({ behavior: 'smooth' }); if (index === 2) document.getElementById('item-claim-form')?.scrollIntoView({ behavior: 'smooth' }); }} className={`flex flex-col items-center gap-1 py-1 text-[10px] ${index === 0 ? 'font-semibold text-blue-600' : 'text-slate-500'}`}><span className="text-lg leading-5">{icon}</span>{label}</button>)}
       </nav>
       <Sheet open={claimDetailOpen} onOpenChange={setClaimDetailOpen}>
         <SheetContent side="bottom" className="max-h-[86dvh] rounded-t-[26px] p-0">
