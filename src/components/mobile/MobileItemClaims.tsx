@@ -291,7 +291,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
         )}
       </section>
 
-        <section id="item-claim-form" className={cn('rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm', activeNav === 'home' || activeNav === 'apply' ? '' : 'hidden')}>
+        <section id="item-claim-form" className={cn('rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm', activeNav === 'home' ? '' : 'hidden')}>
         {showClaimControls && (
         <div className={cn('grid gap-2', showStockControls ? 'grid-cols-2' : 'grid-cols-1')}>
           {showStockControls && (
@@ -523,7 +523,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
       </section>
       }
 
-      <Button type="button" className="fixed bottom-16 left-1/2 z-40 h-11 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-full bg-emerald-600 text-base font-semibold shadow-lg hover:bg-emerald-700" onClick={() => { setActiveNav('apply'); setClaimOpen(true); }}>提交申请</Button>
+      <Button type="button" className={cn('fixed bottom-16 left-1/2 z-40 h-11 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-full bg-emerald-600 text-base font-semibold shadow-lg hover:bg-emerald-700', activeNav === 'apply' && 'hidden')} onClick={() => { setActiveNav('home'); setClaimOpen(true); }}>提交申请</Button>
       <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto grid w-full max-w-md grid-cols-3 border-t border-slate-200 bg-white/95 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
         {[['首页', '⌂'], ['我的领用', '▦'], ['我的申请', '♙']].map(([label, icon], index) => <button key={label} type="button" onClick={() => setActiveNav(index === 1 ? 'claims' : index === 2 ? 'apply' : 'home')} className={`flex flex-col items-center gap-1 py-1 text-[10px] ${((index === 0 && activeNav === 'home') || (index === 1 && activeNav === 'claims') || (index === 2 && activeNav === 'apply')) ? 'font-semibold text-blue-600' : 'text-slate-500'}`}><span className="text-lg leading-5">{icon}</span>{label}</button>)}
       </nav>
