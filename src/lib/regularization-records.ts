@@ -3,6 +3,7 @@ import type { RegularizationFormData, RegularizationRecord, RegularizationStatus
 
 export interface RegularizationDbRow {
   id: number;
+  employee_id?: number | null;
   status: RegularizationStatus;
   applicant_name: string;
   department: string | null;

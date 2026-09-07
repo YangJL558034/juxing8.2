@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { verifyToken } from '@/lib/auth';
 import { normalizeRegularizationData, parseRegularizationRow, type RegularizationDbRow } from '@/lib/regularization-records';
+import { canReviewPersonnel } from '@/lib/permission-check';
 
 async function requireUser(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
@@ -25,6 +26,9 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     const row = db.prepare('SELECT * FROM regularization_records WHERE id = ?').get(id) as RegularizationDbRow | undefined;
     if (!row) {
       return NextResponse.json({ success: false, error: '转正申请不存在' }, { status: 404 });
+    }
+    if (!canReviewPersonnel(user, row.department)) {
+      return NextResponse.json({ success: false, error: '只能审核本部门员工的申请' }, { status: 403 });
     }
 
     const body = await request.json();

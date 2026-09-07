@@ -3,6 +3,7 @@ import type { ResignationFormData, ResignationRecord, ResignationStatus, Resigna
 
 export interface ResignationDbRow {
   id: number;
+  employee_id?: number | null;
   status: ResignationStatus;
   name: string;
   employee_no: string | null;

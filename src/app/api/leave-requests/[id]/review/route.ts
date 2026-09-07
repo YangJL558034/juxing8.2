@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { db } from '@/lib/database';
 import { parseLeaveRequestRow, type LeaveRequestDbRow } from '@/lib/leave-records';
-import { hasPermission } from '@/lib/permission-check';
+import { canReviewPersonnel } from '@/lib/permission-check';
 
 async function requireUser(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
@@ -16,10 +16,6 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     if (!user) {
       return NextResponse.json({ success: false, error: '未登录' }, { status: 401 });
     }
-    if (!hasPermission(user, 'personnel')) {
-      return NextResponse.json({ success: false, error: '无权审核请假申请' }, { status: 403 });
-    }
-
     const { id: rawId } = await context.params;
     const id = Number(rawId);
     if (!Number.isFinite(id)) {
@@ -30,6 +26,9 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       .get(id) as LeaveRequestDbRow | undefined;
     if (!row) {
       return NextResponse.json({ success: false, error: '请假申请不存在或已删除' }, { status: 404 });
+    }
+    if (!canReviewPersonnel(user, row.department, row.employee_id)) {
+      return NextResponse.json({ success: false, error: '只能审核本部门员工的申请' }, { status: 403 });
     }
 
     const body = await request.json().catch(() => ({})) as { reviewerName?: string };

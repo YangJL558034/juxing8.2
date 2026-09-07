@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { verifyToken } from '@/lib/auth';
 import { normalizeResignationData, parseResignationRow, type ResignationDbRow } from '@/lib/resignation-records';
+import { canReviewPersonnel } from '@/lib/permission-check';
 
 type ResignationData = ReturnType<typeof normalizeResignationData>;
 
@@ -93,6 +94,9 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
     const row = db.prepare('SELECT * FROM resignation_records WHERE id = ? AND deleted_at IS NULL').get(id) as ResignationDbRow | undefined;
     if (!row) return NextResponse.json({ success: false, error: '员工离职申请不存在或已删除' }, { status: 404 });
+    if (!canReviewPersonnel(user, row.department, row.employee_id)) {
+      return NextResponse.json({ success: false, error: '只能审核本部门员工的申请' }, { status: 403 });
+    }
 
     const body = await request.json();
     const current = parseResignationRow(row);
