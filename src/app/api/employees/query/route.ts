@@ -134,16 +134,23 @@ export async function GET(request: NextRequest) {
     const name = searchParams.get('name');
     const idCard = searchParams.get('idCard');
 
-    if (!name || !name.trim()) {
-      return NextResponse.json({ success: false, error: '请输入姓名' });
+    const normalizedName = name?.trim() || '';
+    const normalizedIdCard = idCard?.trim().toUpperCase() || '';
+
+    if (!normalizedName) {
+      return NextResponse.json({ success: false, error: '请输入姓名' }, { status: 400 });
     }
 
-    if (!idCard || !idCard.trim()) {
-      return NextResponse.json({ success: false, error: '请输入身份证号' });
+    if (!normalizedIdCard) {
+      return NextResponse.json({ success: false, error: '请输入身份证号' }, { status: 400 });
+    }
+
+    if (normalizedName.length > 40 || normalizedIdCard.length > 18 || !/^(?:\d{15}|\d{17}[\dX])$/.test(normalizedIdCard)) {
+      return NextResponse.json({ success: false, error: '姓名或身份证号格式不正确' }, { status: 400 });
     }
 
     // 必须通过姓名+身份证精确匹配
-    const employee = query.getEmployeeByNameAndIdCard.get(name.trim(), idCard.trim()) as {
+    const employee = query.getEmployeeByNameAndIdCard.get(normalizedName, normalizedIdCard) as {
       id: number;
       name: string;
       id_card: string;

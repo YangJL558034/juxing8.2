@@ -5,8 +5,10 @@ import { query } from '@/lib/database';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '20');
+    const requestedPage = Number.parseInt(searchParams.get('page') || '1', 10);
+    const requestedPageSize = Number.parseInt(searchParams.get('pageSize') || '20', 10);
+    const page = Number.isFinite(requestedPage) ? Math.max(1, requestedPage) : 1;
+    const pageSize = Number.isFinite(requestedPageSize) ? Math.min(100, Math.max(1, requestedPageSize)) : 20;
     const offset = (page - 1) * pageSize;
 
     // 获取通知总数
