@@ -305,6 +305,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
               variant="outline"
               className="h-12 rounded-2xl text-base font-semibold"
               onClick={() => {
+                setActiveNav('home');
                 setStockOpen((current) => !current);
                 setClaimOpen(false);
               }}
