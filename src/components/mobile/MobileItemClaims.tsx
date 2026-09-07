@@ -462,7 +462,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false 
             </article>
           ))}
         </section>
-      )}
+      }
 
       {!standaloneRequest && (
       <section className="space-y-3">
