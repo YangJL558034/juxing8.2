@@ -91,7 +91,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
     quantity: '1',
     reason: '',
   });
-  const [activeNav, setActiveNav] = useState<'home' | 'claims' | 'apply'>('home');
+  const [activeNav, setActiveNav] = useState<'home' | 'claims' | 'apply'>(canManage && !standaloneRequest ? 'claims' : 'home');
   const [claimingItemId, setClaimingItemId] = useState<number | null>(null);
   const [animatingNav, setAnimatingNav] = useState<number | null>(null);
 
@@ -314,7 +314,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
             </Button>
           )}
           {showStockControls && <Button variant="outline" className="h-12 rounded-2xl text-base font-semibold" onClick={() => { setActiveNav('claims'); setStockOpen(false); setClaimOpen(false); }}><ClipboardList className="mr-2 h-4 w-4" />审核物品</Button>}
-          <Button
+          {!showStockControls && <Button
             className="h-12 rounded-2xl bg-blue-600 text-base font-semibold hover:bg-blue-700"
             onClick={() => {
               setClaimOpen((current) => !current);
@@ -323,7 +323,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
           >
             <Plus className="mr-2 h-4 w-4" />
             物品领用申请
-          </Button>
+          </Button>}
         </div>
         )}
 
