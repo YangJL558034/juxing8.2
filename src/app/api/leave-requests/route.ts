@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     const approved = searchParams.get('approved') === '1';
     const includeDeleted = searchParams.get('includeDeleted') === '1';
     const onlyDeleted = searchParams.get('deleted') === '1';
-    const canManagePersonnel = hasPermission(user, 'personnel');
+    const canManagePersonnel = hasPermission(user, 'personnel') || ['manager', 'dept_manager'].includes(user.role);
     const canReadApprovedForSalary = approved && hasPermission(user, 'salary');
     if (!canManagePersonnel && !canReadApprovedForSalary) {
       return NextResponse.json({ success: false, error: '无权查看请假申请' }, { status: 403 });
@@ -88,6 +88,10 @@ export async function GET(request: NextRequest) {
 
     const where: string[] = [];
     const params: unknown[] = [];
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      where.push(`EXISTS (SELECT 1 FROM employees e JOIN employee_self_service_managers m ON m.location = e.location WHERE e.id = leave_request_records.employee_id AND m.user_id = ?)`);
+      params.push(user.id);
+    }
 
     if (onlyDeleted) {
       where.push('deleted_at IS NOT NULL');

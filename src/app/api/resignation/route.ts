@@ -21,6 +21,10 @@ export async function GET(request: NextRequest) {
     const deleted = searchParams.get('deleted') === '1';
     const where: string[] = [];
     const params: unknown[] = [];
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      where.push(`EXISTS (SELECT 1 FROM employees e JOIN employee_self_service_managers m ON m.location = e.location WHERE (e.id = resignation_records.employee_id OR (e.name = resignation_records.name AND e.id_card = resignation_records.id_card)) AND m.user_id = ?)`);
+      params.push(user.id);
+    }
 
     db.prepare("DELETE FROM resignation_records WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '+8 hours', '-7 days')").run();
 
