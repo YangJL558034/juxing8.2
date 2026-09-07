@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     // 获取接收者列表
     let receivers: User[] = [];
     
-    if (receiverIds === 'all') {
+    if (receiverIds === 'all' && skipEmail) {
       // 员工平台通知发送给所有在职员工，不受其是否拥有系统用户账号限制。
       const activeEmployees = db.prepare(`
         SELECT id, name, phone AS username
@@ -97,6 +97,8 @@ export async function POST(request: NextRequest) {
           AND TRIM(name) <> '' AND TRIM(COALESCE(id_card, '')) <> ''
       `).all() as User[];
       receivers = activeEmployees;
+    } else if (receiverIds === 'all') {
+      receivers = allUsers;
     } else if (Array.isArray(receiverIds) && receiverIds.length > 0) {
       // 发送给指定用户
       receivers = receiverIds.map((id: number) => {
@@ -143,6 +145,9 @@ export async function POST(request: NextRequest) {
         localTime
       );
       const notificationId = result.lastInsertRowid as number;
+      if (receiverIds === 'all' && skipEmail) {
+        db.prepare('UPDATE notifications SET employee_recipient_id = ? WHERE id = ?').run(receiver.id, notificationId);
+      }
       
       console.log(`[Notification] 通知已保存到数据库，ID: ${notificationId}`);
 
@@ -232,8 +237,9 @@ export async function POST(request: NextRequest) {
       emailCount,
       results,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('发送通知失败:', error);
-    return NextResponse.json({ error: error.message || '发送失败' }, { status: 500 });
+    const message = error instanceof Error ? error.message : '发送失败';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

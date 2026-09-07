@@ -265,7 +265,32 @@ export default function EmployeeSelfServicePortal() {
   const [hasSignature, setHasSignature] = useState(false);
   const sessionRestoreAttempted = useRef(false);
 
-  useEffect(() => { if (data?.employee) setAvatarUrl(data.employee.avatar_url || ''); }, [data?.employee]);
+  useEffect(() => {
+    if (!data?.employee) return;
+    const currentEmployee = data.employee;
+    setAvatarUrl(currentEmployee.avatar_url || '');
+    if (currentEmployee.avatar_url) return;
+    let cancelled = false;
+    const migrateAvatar = async () => {
+      try {
+        const key = `employee-self-service-avatar:${currentEmployee.id_card}`;
+        const legacy = window.localStorage.getItem(key);
+        if (!legacy || !/^data:image\/(png|jpeg|webp|gif);base64,/.test(legacy)) return;
+        const blob = await (await fetch(legacy)).blob();
+        const form = new FormData();
+        form.append('file', blob, 'avatar');
+        form.append('migration', 'true');
+        const response = await fetch('/api/employee-self-service/avatar', { method: 'POST', body: form });
+        const result = await response.json() as { success?: boolean; avatarUrl?: string };
+        if (!cancelled && response.ok && result.success && result.avatarUrl) {
+          setAvatarUrl(result.avatarUrl);
+          window.localStorage.removeItem(key);
+        }
+      } catch { /* 保留旧头像，稍后可再次迁移。 */ }
+    };
+    void migrateAvatar();
+    return () => { cancelled = true; };
+  }, [data?.employee]);
 
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -310,7 +335,11 @@ export default function EmployeeSelfServicePortal() {
         setWelcomeMessage(`欢迎回来，${portalData.employee.name}，工作辛苦了！`);
         window.setTimeout(() => setWelcomeMessage(''), 3600);
       }
-      if (portalData.serviceSummary.notifications[0]) window.setTimeout(() => { const latestId = portalData.serviceSummary.notifications[0]?.id; let savedIds: number[] = []; try { savedIds = JSON.parse(window.localStorage.getItem('employee-self-service-read-notifications') || '[]') as number[]; } catch { /* ignore */ } if (latestId && !savedIds.includes(latestId) && !readNotificationIds.includes(latestId)) { setNotificationAutoOnlyLatest(true); setNotificationDialogOpen(true); } }, 700);
+      const latestNotice = portalData.serviceSummary.notifications[0];
+      if (!preserveNavigation && latestNotice && !latestNotice.isRead) {
+        setNotificationAutoOnlyLatest(true);
+        setNotificationDialogOpen(true);
+      }
       const salaryMonths = portalData.salaryRecords.map((record) => `${record.year}-${String(record.month_num).padStart(2, '0')}`).sort().reverse();
       setSelectedSalaryMonth(salaryMonths[0] || previousMonthKey());
       setSelectedAttendanceMonth(previousMonthKey());
@@ -343,6 +372,10 @@ export default function EmployeeSelfServicePortal() {
   }, []);
 
   const logout = () => {
+    void fetch('/api/employee-self-service/logout', { method: 'POST' });
+    setAvatarUrl('');
+    setReadNotificationIds([]);
+    setNotificationDialogOpen(false);
     setData(null);
     setActiveTab('home');
     setTabHistory(['home']);
@@ -386,21 +419,14 @@ export default function EmployeeSelfServicePortal() {
   // “不购买社保/自愿放弃”与“购买社保”是互斥入口；已有不购买记录时不再展示历史购买记录。
   const purchaseRecords = socialRecords.length > 0 ? [] : (data?.serviceSummary.socialSecurityPurchase || []);
 
-  useEffect(() => {
+  const markNotificationRead = async (id: number) => {
+    if (readNotificationIds.includes(id)) return;
     try {
-      const saved = window.localStorage.getItem('employee-self-service-read-notifications');
-      if (saved) setReadNotificationIds(JSON.parse(saved) as number[]);
-    } catch { /* ignore invalid cache */ }
-  }, []);
-
-  const markNotificationRead = (id: number) => {
-    setReadNotificationIds((current) => {
-      if (current.includes(id)) return current;
-      const next = [...current, id];
-      window.localStorage.setItem('employee-self-service-read-notifications', JSON.stringify(next));
-      void fetch('/api/employee-self-service/notifications/read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, employeeName: employee.name }) });
-      return next;
-    });
+      const response = await fetch('/api/employee-self-service/notifications/read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+      const result = await response.json() as { success?: boolean };
+      if (!response.ok || !result.success) throw new Error('已读状态保存失败，请重试');
+      setReadNotificationIds(current => current.includes(id) ? current : [...current, id]);
+    } catch { setError('已读状态保存失败，请重新登录后重试'); }
   };
 
   useEffect(() => {
@@ -510,6 +536,7 @@ export default function EmployeeSelfServicePortal() {
   const currentSalaryIncome = selectedSalary ? sumSalary(selectedSalary, ['base_salary', 'normal_pay', 'weekday_overtime_pay', 'weekend_overtime_pay', 'performance_allowance', 'performance_pay', 'living_subsidy', 'meal_subsidy', 'housing_subsidy', 'transport_subsidy', 'other_subsidy', 'other_pay', 'seniority_award', 'full_attendance_award', 'position_subsidy', 'work_reward', 'spring_festival_subsidy', 'social_security_subsidy']) : 0;
   const currentSalaryDeduction = selectedSalary ? Number(selectedSalary.total_deduction || sumSalary(selectedSalary, ['deduct_social_security', 'deduct_utilities', 'deduct_loan', 'deduct_urgent', 'deduct_other', 'other_deduction', 'fine', 'housing_fund', 'social_insurance', 'income_tax'])) : 0;
   const switchTab = (tab: PortalTab) => {
+    if (tab === 'services') void loadPortal(name, idCard, true);
     setActiveTab(tab);
     setTabHistory((history) => history[history.length - 1] === tab ? history : [...history, tab]);
     window.scrollTo({ top: 0, behavior: 'smooth' });

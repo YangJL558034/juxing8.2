@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, db } from '@/lib/database';
+import { setEmployeeSession, employeeNoticeAccess } from '@/lib/employee-session';
 import {
   isDateInLeaveRange,
   parseLeaveRequestRow,
@@ -301,16 +302,18 @@ export async function GET(request: NextRequest) {
       created_at: string;
     }>;
 
-    const resignationRows = db.prepare(`SELECT id, status, created_at FROM resignation_records WHERE deleted_at IS NULL AND name = ? AND id_card = ? ORDER BY id DESC LIMIT 10`).all(employee.name, employee.id_card) as Array<{ id: number; status: string; created_at: string }>;
-    const regularizationRows = db.prepare(`SELECT id, status, created_at FROM regularization_records WHERE deleted_at IS NULL AND applicant_name = ? ORDER BY id DESC LIMIT 10`).all(employee.name) as Array<{ id: number; status: string; created_at: string }>;
-    const workCertificateRows = db.prepare(`SELECT id, status, created_at FROM work_certificate_records WHERE deleted_at IS NULL AND name = ? AND id_card = ? ORDER BY id DESC LIMIT 10`).all(employee.name, employee.id_card) as Array<{ id: number; status: string; created_at: string }>;
+const resignationRows = db.prepare(`SELECT id, status, created_at FROM resignation_records WHERE deleted_at IS NULL AND name = ? AND id_card = ? ORDER BY id DESC`).all(employee.name, employee.id_card) as Array<{ id: number; status: string; created_at: string }>;
+    const regularizationRows = db.prepare(`SELECT id, status, created_at FROM regularization_records WHERE deleted_at IS NULL AND applicant_name = ? ORDER BY id DESC`).all(employee.name) as Array<{ id: number; status: string; created_at: string }>;
+    const workCertificateRows = db.prepare(`SELECT id, status, created_at FROM work_certificate_records WHERE deleted_at IS NULL AND name = ? AND id_card = ? ORDER BY id DESC`).all(employee.name, employee.id_card) as Array<{ id: number; status: string; created_at: string }>;
     const notificationRows = db.prepare(`
-      SELECT id, title, content, sender_name, attachment_file, attachment_file_name, is_read, created_at
-      FROM notifications
-      WHERE receiver_name = ? OR receiver_name IN ('全体员工', '所有员工')
-      ORDER BY id DESC
+      SELECT n.*, CASE WHEN EXISTS (SELECT 1 FROM employee_notification_reads r
+        WHERE r.employee_id = @employeeId AND r.notification_id = n.id) THEN 1
+        WHEN n.receiver_name NOT IN ('全体员工', '所有员工') THEN n.is_read ELSE 0 END AS is_read
+      FROM notifications n
+      WHERE ${employeeNoticeAccess}
+      ORDER BY n.id DESC
       LIMIT 20
-    `).all(employee.name) as Array<{
+    `).all({ employeeId: employee.id, employeeName: employee.name }) as Array<{
       id: number;
       title: string;
       content: string | null;
@@ -362,7 +365,7 @@ export async function GET(request: NextRequest) {
       department: employee.department || record.department || ''
     }));
 
-    return NextResponse.json({ 
+    const response = NextResponse.json({
       success: true, 
       employee,
       workRecords: [],
@@ -373,6 +376,9 @@ export async function GET(request: NextRequest) {
       missingPunchRecords,
       serviceSummary,
     });
+    response.headers.set('Cache-Control', 'no-store');
+    setEmployeeSession(response, employee.id);
+    return response;
   } catch (error) {
     console.error('Query employee error:', error);
     return NextResponse.json({ error: '查询失败' }, { status: 500 });

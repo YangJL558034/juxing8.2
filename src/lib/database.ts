@@ -8,7 +8,7 @@ import { chinaNowSql, formatChinaDateTime } from './china-time';
 const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
 
 // 数据库文件路径
-const getDbPath = () => process.env.COZE_PROJECT_ENV === 'PROD' 
+const getDbPath = () => process.env.CRM_DATABASE_PATH ? path.resolve(process.env.CRM_DATABASE_PATH) : process.env.COZE_PROJECT_ENV === 'PROD'
   ? '/tmp/crm.db'  // 生产环境使用 /tmp
   : path.join(/* turbopackIgnore: true */ process.cwd(), 'data', 'crm.db');
 
@@ -1970,6 +1970,19 @@ export function initDatabase(dbInstance: Database.Database) {
   `);
 
   try { dbInstance.exec('ALTER TABLE employees ADD COLUMN avatar_url TEXT'); } catch { /* 已存在 */ }
+  const notificationColumns = dbInstance.prepare('PRAGMA table_info(notifications)').all() as Array<{ name: string }>;
+  if (!notificationColumns.some(column => column.name === 'employee_recipient_id')) {
+    dbInstance.exec('ALTER TABLE notifications ADD COLUMN employee_recipient_id INTEGER');
+  }
+  dbInstance.exec(`
+    CREATE TABLE IF NOT EXISTS employee_sessions (
+      token_hash TEXT PRIMARY KEY, employee_id INTEGER NOT NULL, expires_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS employee_notification_reads (
+      employee_id INTEGER NOT NULL, notification_id INTEGER NOT NULL,
+      read_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(employee_id, notification_id)
+    );
+  `);
   
   // 添加 attachment_file 和 attachment_file_name 字段（如果不存在）
   try {
