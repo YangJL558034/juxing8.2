@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { sendEmail } from '@/lib/email';
 import { chinaNowSql } from '@/lib/china-time';
+import { getCurrentUser } from '@/lib/auth';
 
 interface User {
   id: number;
@@ -12,6 +13,10 @@ interface User {
 
 export async function POST(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUser(request.headers.get('cookie'));
+    if (!currentUser || !['admin', 'super_admin'].includes(currentUser.role)) {
+      return NextResponse.json({ success: false, error: '仅管理员可以发送通知' }, { status: 403 });
+    }
     const body = await request.json();
     const { title, content, receiverIds, senderId, senderName, sendEmailOnly, specificEmail, attachment, skipEmail } = body;
 

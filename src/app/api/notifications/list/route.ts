@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/database';
+import { getCurrentUser } from '@/lib/auth';
 
 // 获取所有通知列表（管理员用）
 export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser(request.headers.get('cookie'));
+    if (!user || !['admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ error: '无权查看通知管理数据' }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     const requestedPage = Number.parseInt(searchParams.get('page') || '1', 10);
     const requestedPageSize = Number.parseInt(searchParams.get('pageSize') || '20', 10);

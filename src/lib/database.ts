@@ -1983,6 +1983,11 @@ export function initDatabase(dbInstance: Database.Database) {
       read_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(employee_id, notification_id)
     );
   `);
+  dbInstance.exec(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_receiver_created ON notifications(receiver_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_notifications_employee_recipient ON notifications(employee_recipient_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_employee_notification_reads_employee ON employee_notification_reads(employee_id, read_at DESC);
+  `);
   
   // 添加 attachment_file 和 attachment_file_name 字段（如果不存在）
   try {
