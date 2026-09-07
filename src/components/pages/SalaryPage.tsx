@@ -172,6 +172,16 @@ interface MonthlyRecord {
   remark?: string;
 }
 
+function maskPhone(value?: string | null): string {
+  const phone = String(value || '').trim();
+  return phone.length >= 7 ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : (phone || '-');
+}
+
+function maskIdCard(value?: string | null): string {
+  const idCard = String(value || '').trim();
+  return idCard.length >= 8 ? `${idCard.slice(0, 4)}********${idCard.slice(-4)}` : (idCard || '-');
+}
+
 interface AttendanceMissingWarning extends MissingPunchReminder {
   employeeId: number;
   employeeName: string;
@@ -1533,8 +1543,8 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                           <TableRow key={emp.id}>
                             <TableCell className="font-medium">{emp.employee_id || emp.id}</TableCell>
                             <TableCell className="font-medium">{emp.name}</TableCell>
-                            <TableCell>{emp.phone || '-'}</TableCell>
-                            <TableCell>{emp.id_card || '-'}</TableCell>
+                            <TableCell>{maskPhone(emp.phone)}</TableCell>
+                            <TableCell>{maskIdCard(emp.id_card)}</TableCell>
                             <TableCell>{emp.department || '-'}</TableCell>
                             <TableCell>{emp.hire_date || '-'}</TableCell>
                             <TableCell>
@@ -1621,8 +1631,8 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                         }).map((emp) => (
                           <TableRow key={emp.id} className="opacity-75">
                             <TableCell className="font-medium">{emp.name}</TableCell>
-                            <TableCell>{emp.phone || '-'}</TableCell>
-                            <TableCell>{emp.id_card || '-'}</TableCell>
+                            <TableCell>{maskPhone(emp.phone)}</TableCell>
+                            <TableCell>{maskIdCard(emp.id_card)}</TableCell>
                             <TableCell>{emp.department || '-'}</TableCell>
                             <TableCell>
                               <span className="text-sm text-red-600">{emp.resign_date || '-'}</span>
