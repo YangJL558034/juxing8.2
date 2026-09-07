@@ -291,7 +291,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
         )}
       </section>
 
-        <section id="item-claim-form" className={cn('rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm', activeNav === 'home' ? '' : 'hidden')}>
+        <section id="item-claim-form" className={cn('sticky top-16 z-40 rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm', activeNav === 'home' ? '' : 'hidden')}>
         {showClaimControls && (
         <div className={cn('grid gap-2', showStockControls ? 'grid-cols-2' : 'grid-cols-1')}>
           {showStockControls && (
@@ -411,7 +411,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
               onChange={(event) => setClaimForm((current) => ({ ...current, reason: event.target.value }))}
               placeholder="领用原因"
             />
-            <Button className="fixed left-1/2 top-16 z-50 h-12 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl bg-emerald-600 shadow-lg hover:bg-emerald-700" onClick={submitClaim} disabled={submitting || items.length === 0}>
+            <Button className="h-12 w-full rounded-2xl bg-emerald-600 shadow-md hover:bg-emerald-700" onClick={submitClaim} disabled={submitting || items.length === 0}>
               {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardList className="mr-2 h-4 w-4" />}
               提交申请
             </Button>
