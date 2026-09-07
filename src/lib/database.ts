@@ -1988,6 +1988,42 @@ export function initDatabase(dbInstance: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_notifications_employee_recipient ON notifications(employee_recipient_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_employee_notification_reads_employee ON employee_notification_reads(employee_id, read_at DESC);
   `);
+
+  // 统一申请记录与员工主档的关联；旧数据仅在姓名唯一时自动回填，避免重名误关联。
+  for (const table of ['resignation_records', 'regularization_records', 'work_certificate_records', 'social_security_records', 'social_security_purchase_records']) {
+    try { dbInstance.exec(`ALTER TABLE ${table} ADD COLUMN employee_id INTEGER`); } catch { /* 已存在 */ }
+  }
+  dbInstance.exec(`
+    UPDATE resignation_records SET employee_id = (
+      SELECT e.id FROM employees e WHERE e.name = resignation_records.name
+        AND (resignation_records.id_card IS NULL OR resignation_records.id_card = '' OR e.id_card = resignation_records.id_card)
+      GROUP BY e.name HAVING COUNT(*) = 1
+    ) WHERE employee_id IS NULL;
+    UPDATE work_certificate_records SET employee_id = (
+      SELECT e.id FROM employees e WHERE e.name = work_certificate_records.name
+        AND (work_certificate_records.id_card IS NULL OR work_certificate_records.id_card = '' OR e.id_card = work_certificate_records.id_card)
+      GROUP BY e.name HAVING COUNT(*) = 1
+    ) WHERE employee_id IS NULL;
+    UPDATE social_security_records SET employee_id = (
+      SELECT e.id FROM employees e WHERE e.name = social_security_records.name
+        AND (social_security_records.id_card IS NULL OR social_security_records.id_card = '' OR e.id_card = social_security_records.id_card)
+      GROUP BY e.name HAVING COUNT(*) = 1
+    ) WHERE employee_id IS NULL;
+    UPDATE social_security_purchase_records SET employee_id = (
+      SELECT e.id FROM employees e WHERE e.name = social_security_purchase_records.employee_name
+        AND (social_security_purchase_records.id_card IS NULL OR social_security_purchase_records.id_card = '' OR e.id_card = social_security_purchase_records.id_card)
+      GROUP BY e.name HAVING COUNT(*) = 1
+    ) WHERE employee_id IS NULL;
+    UPDATE regularization_records SET employee_id = (
+      SELECT e.id FROM employees e WHERE e.name = regularization_records.applicant_name
+      GROUP BY e.name HAVING COUNT(*) = 1
+    ) WHERE employee_id IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_resignation_employee_id ON resignation_records(employee_id);
+    CREATE INDEX IF NOT EXISTS idx_regularization_employee_id ON regularization_records(employee_id);
+    CREATE INDEX IF NOT EXISTS idx_work_certificate_employee_id ON work_certificate_records(employee_id);
+    CREATE INDEX IF NOT EXISTS idx_social_security_employee_id ON social_security_records(employee_id);
+    CREATE INDEX IF NOT EXISTS idx_social_security_purchase_employee_id ON social_security_purchase_records(employee_id);
+  `);
   
   // 添加 attachment_file 和 attachment_file_name 字段（如果不存在）
   try {

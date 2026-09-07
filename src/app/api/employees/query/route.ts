@@ -286,10 +286,10 @@ export async function GET(request: NextRequest) {
     const socialSecurityRows = db.prepare(`
       SELECT id, document_type, status, application_date, created_at
       FROM social_security_records
-      WHERE deleted_at IS NULL AND name = ? AND id_card = ?
+      WHERE deleted_at IS NULL AND (employee_id = ? OR (name = ? AND id_card = ?))
       ORDER BY id DESC
       LIMIT 10
-    `).all(employee.name, employee.id_card) as Array<{
+    `).all(employee.id, employee.name, employee.id_card) as Array<{
       id: number;
       document_type: string;
       status: string;
@@ -300,19 +300,19 @@ export async function GET(request: NextRequest) {
     const socialSecurityPurchaseRows = db.prepare(`
       SELECT id, contract_status, insurance_status, created_at
       FROM social_security_purchase_records
-      WHERE deleted_at IS NULL AND employee_name = ? AND id_card = ?
+      WHERE deleted_at IS NULL AND (employee_id = ? OR (employee_name = ? AND id_card = ?))
       ORDER BY id DESC
       LIMIT 10
-    `).all(employee.name, employee.id_card) as Array<{
+    `).all(employee.id, employee.name, employee.id_card) as Array<{
       id: number;
       contract_status: string | null;
       insurance_status: string | null;
       created_at: string;
     }>;
 
-const resignationRows = db.prepare(`SELECT id, status, created_at FROM resignation_records WHERE deleted_at IS NULL AND name = ? AND id_card = ? ORDER BY id DESC`).all(employee.name, employee.id_card) as Array<{ id: number; status: string; created_at: string }>;
-    const regularizationRows = db.prepare(`SELECT id, status, created_at FROM regularization_records WHERE deleted_at IS NULL AND applicant_name = ? ORDER BY id DESC`).all(employee.name) as Array<{ id: number; status: string; created_at: string }>;
-    const workCertificateRows = db.prepare(`SELECT id, status, created_at FROM work_certificate_records WHERE deleted_at IS NULL AND name = ? AND id_card = ? ORDER BY id DESC`).all(employee.name, employee.id_card) as Array<{ id: number; status: string; created_at: string }>;
+ const resignationRows = db.prepare(`SELECT id, status, created_at FROM resignation_records WHERE deleted_at IS NULL AND (employee_id = ? OR (name = ? AND id_card = ?)) ORDER BY id DESC`).all(employee.id, employee.name, employee.id_card) as Array<{ id: number; status: string; created_at: string }>;
+    const regularizationRows = db.prepare(`SELECT id, status, created_at FROM regularization_records WHERE deleted_at IS NULL AND (employee_id = ? OR applicant_name = ?) ORDER BY id DESC`).all(employee.id, employee.name) as Array<{ id: number; status: string; created_at: string }>;
+    const workCertificateRows = db.prepare(`SELECT id, status, created_at FROM work_certificate_records WHERE deleted_at IS NULL AND (employee_id = ? OR (name = ? AND id_card = ?)) ORDER BY id DESC`).all(employee.id, employee.name, employee.id_card) as Array<{ id: number; status: string; created_at: string }>;
     const notificationRows = db.prepare(`
       SELECT n.*, CASE WHEN EXISTS (SELECT 1 FROM employee_notification_reads r
         WHERE r.employee_id = @employeeId AND r.notification_id = n.id) THEN 1
