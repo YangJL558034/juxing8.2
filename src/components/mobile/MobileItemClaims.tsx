@@ -92,6 +92,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
     reason: '',
   });
   const [activeNav, setActiveNav] = useState<'home' | 'claims' | 'apply'>('home');
+  const [claimingItemId, setClaimingItemId] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -462,7 +463,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
                   <div className="text-xs text-slate-400">剩余</div>
                   <div className="mt-1 font-medium text-slate-900">{item.remainingQuantity}{item.unit}</div>
                 </div>
-                <Button size="sm" className="rounded-full bg-blue-600 px-2 text-xs" onClick={() => { setClaimForm((current) => ({ ...current, itemId: String(item.id) })); setClaimOpen(true); }}>立即领用</Button>
+                <Button size="sm" className={cn('rounded-full bg-blue-600 px-2 text-xs transition-transform duration-150', claimingItemId === item.id && 'scale-90')} onClick={() => { setClaimingItemId(item.id); setClaimForm((current) => ({ ...current, itemId: String(item.id) })); window.setTimeout(() => { setClaimOpen(true); setClaimingItemId(null); }, 180); }}>立即领用</Button>
               </div>
             </article>
           ))}
