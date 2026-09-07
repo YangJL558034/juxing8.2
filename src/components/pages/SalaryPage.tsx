@@ -2925,19 +2925,6 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                 </Button>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>员工自助平台管理者</Label>
-              <Select value={editFormData.self_service_manager_user_id || 'none'} onValueChange={(value) => setEditFormData({ ...editFormData, self_service_manager_user_id: value === 'none' ? '' : value })}>
-                <SelectTrigger><SelectValue placeholder="选择办公室/车间主管" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">不指定</SelectItem>
-                  {selfServiceManagers.filter((manager) => !manager.department || !editFormData.department || manager.department === editFormData.department).map((manager) => (
-                    <SelectItem key={manager.id} value={String(manager.id)}>{manager.name}（{manager.role === 'admin' || manager.role === 'super_admin' ? '管理员' : '主管'}）</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">主管登录员工自助平台后，可审核该员工的申请。</p>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateEmployeeDialog(false)}>
@@ -3030,6 +3017,19 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                   车间
                 </Button>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>员工自助平台管理者</Label>
+              <Select value={editFormData.self_service_manager_user_id || 'none'} onValueChange={(value) => setEditFormData({ ...editFormData, self_service_manager_user_id: value === 'none' ? '' : value })}>
+                <SelectTrigger><SelectValue placeholder="选择办公室/车间主管" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">不指定</SelectItem>
+                  {selfServiceManagers.filter((manager) => !manager.department || !editFormData.department || manager.department === editFormData.department).map((manager) => (
+                    <SelectItem key={manager.id} value={String(manager.id)}>{manager.name}（{manager.role === 'admin' || manager.role === 'super_admin' ? '管理员' : '主管'}）</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">主管登录员工自助平台后，可审核该员工的申请。</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-hire-date">入职日期</Label>
