@@ -25,6 +25,7 @@ import type {
 interface MobileItemClaimsProps {
   canManage: boolean;
   standaloneRequest?: boolean;
+  initialApplicantName?: string;
 }
 
 interface MutateItemResponse {
@@ -69,7 +70,7 @@ function statusClass(status: string) {
   return 'bg-orange-50 text-orange-700';
 }
 
-export default function MobileItemClaims({ canManage, standaloneRequest = false }: MobileItemClaimsProps) {
+export default function MobileItemClaims({ canManage, standaloneRequest = false, initialApplicantName = '' }: MobileItemClaimsProps) {
   const [items, setItems] = useState<ItemInventoryRecord[]>([]);
   const [claims, setClaims] = useState<ItemClaimRecord[]>([]);
   const [summary, setSummary] = useState<ItemInventorySummary>(emptySummary);
@@ -83,7 +84,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false 
   const [error, setError] = useState('');
   const [selectedClaim, setSelectedClaim] = useState<ItemClaimRecord | null>(null);
   const [stockForm, setStockForm] = useState(emptyStockForm);
-  const [applicantName, setApplicantName] = useState('');
+  const [applicantName, setApplicantName] = useState(initialApplicantName);
   const [claimForm, setClaimForm] = useState({
     itemId: '',
     quantity: '1',
