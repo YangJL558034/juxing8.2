@@ -137,8 +137,8 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false 
   }, [claimForm.itemId, items]);
 
   const showStockControls = canManage && !standaloneRequest;
-  const showClaimControls = !standaloneRequest;
-  const claimFormOpen = standaloneRequest || claimOpen;
+  const showClaimControls = true;
+  const claimFormOpen = claimOpen;
 
   const openClaimDetail = (claim: ItemClaimRecord) => {
     setSelectedClaim(claim);
@@ -419,10 +419,10 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false 
 
       {error && <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      {canManage && (
+      {
         <section className="space-y-3">
           <div className="flex items-center justify-between px-1">
-            <h2 className="text-base font-semibold text-slate-950">物品库</h2>
+            <h2 className="text-base font-semibold text-slate-950">库存物品</h2>
             <span className="text-sm text-slate-500">{items.length} 类</span>
           </div>
 
@@ -434,17 +434,17 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false 
           )}
 
           {!loading && items.map((item) => (
-            <article key={item.id} className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+            <article key={item.id} className="rounded-[24px] border border-slate-100 bg-white p-3 shadow-sm">
               <div className="flex items-start gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                  <PackageCheck className="h-6 w-6" />
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-blue-50 text-3xl">
+                  📦
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-lg font-semibold text-slate-950">{item.name}</h3>
                   <p className="mt-1 truncate text-sm text-slate-500">{display(item.category)} / 单价 ￥{item.unitPrice}</p>
                 </div>
               </div>
-              <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
+              <div className="mt-4 flex items-center justify-between gap-3 text-sm">
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <div className="text-xs text-slate-400">剩余</div>
                   <div className="mt-1 font-medium text-slate-900">{item.remainingQuantity}{item.unit}</div>
@@ -457,6 +457,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false 
                   <div className="text-xs text-slate-400">待审</div>
                   <div className="mt-1 font-medium text-slate-900">{item.pendingQuantity}{item.unit}</div>
                 </div>
+                <Button size="sm" className="rounded-full bg-blue-600 px-4" onClick={() => { setClaimForm((current) => ({ ...current, itemId: String(item.id) })); setClaimOpen(true); }}>立即领用</Button>
               </div>
             </article>
           ))}
