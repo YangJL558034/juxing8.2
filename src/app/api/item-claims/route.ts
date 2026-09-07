@@ -89,6 +89,10 @@ export async function GET(request: NextRequest) {
   try {
     const user = await requireUser(request);
     const employeeSession = getEmployeeSession(request);
+    if (user && hasPermission(user, 'administration')) {
+      const rows = getClaimRows(user, true);
+      return NextResponse.json<ItemClaimListResponse>({ success: true, claims: rows.map(mapClaim) });
+    }
     if (employeeSession) {
       const rows = db.prepare('SELECT * FROM item_claim_records WHERE deleted_at IS NULL AND (applicant_id = ? OR (applicant_id IS NULL AND applicant_name = ?)) ORDER BY created_at DESC, id DESC').all(employeeSession.id, employeeSession.name) as ItemClaimRow[];
       return NextResponse.json<ItemClaimListResponse>({ success: true, claims: rows.map(mapClaim) });
