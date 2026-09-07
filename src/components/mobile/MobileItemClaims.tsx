@@ -90,6 +90,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
     quantity: '1',
     reason: '',
   });
+  const [activeNav, setActiveNav] = useState<'home' | 'claims' | 'apply'>('home');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -290,7 +291,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
         )}
       </section>
 
-      <section id="item-claim-form" className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
+        <section id="item-claim-form" className={cn('rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm', activeNav === 'home' || activeNav === 'apply' ? '' : 'hidden')}>
         {showClaimControls && (
         <div className={cn('grid gap-2', showStockControls ? 'grid-cols-2' : 'grid-cols-1')}>
           {showStockControls && (
@@ -421,7 +422,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
       {error && <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {
-        <section className="grid grid-cols-2 gap-2">
+        <section className={cn('grid grid-cols-2 gap-2', activeNav === 'home' ? '' : 'hidden')}>
           <div className="col-span-2 flex items-center justify-between px-1">
             <h2 className="text-base font-semibold text-slate-950">库存物品</h2>
             <span className="text-sm text-slate-500">{items.length} 类</span>
@@ -458,7 +459,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
       }
 
       {
-      <section id="item-claim-history" className="space-y-3">
+      <section id="item-claim-history" className={cn('space-y-3', activeNav === 'claims' ? '' : 'hidden')}>
         <div className="flex items-center justify-between px-1">
           <h2 className="text-base font-semibold text-slate-950">{canManage ? '领用记录' : '我的领用'}</h2>
           <span className="text-sm text-slate-500">{claims.length} 条</span>
@@ -523,7 +524,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
       }
 
       <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto grid w-full max-w-md grid-cols-3 border-t border-slate-200 bg-white/95 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
-        {[['首页', '⌂'], ['我的领用', '▦'], ['我的申请', '♙']].map(([label, icon], index) => <button key={label} type="button" onClick={() => { if (index === 1) document.getElementById('item-claim-form')?.scrollIntoView({ behavior: 'smooth' }); if (index === 2) document.getElementById('item-claim-history')?.scrollIntoView({ behavior: 'smooth' }); }} className={`flex flex-col items-center gap-1 py-1 text-[10px] ${index === 0 ? 'font-semibold text-blue-600' : 'text-slate-500'}`}><span className="text-lg leading-5">{icon}</span>{label}</button>)}
+        {[['首页', '⌂'], ['我的领用', '▦'], ['我的申请', '♙']].map(([label, icon], index) => <button key={label} type="button" onClick={() => setActiveNav(index === 1 ? 'claims' : index === 2 ? 'apply' : 'home')} className={`flex flex-col items-center gap-1 py-1 text-[10px] ${((index === 0 && activeNav === 'home') || (index === 1 && activeNav === 'claims') || (index === 2 && activeNav === 'apply')) ? 'font-semibold text-blue-600' : 'text-slate-500'}`}><span className="text-lg leading-5">{icon}</span>{label}</button>)}
       </nav>
       <Sheet open={claimDetailOpen} onOpenChange={setClaimDetailOpen}>
         <SheetContent side="bottom" className="max-h-[86dvh] rounded-t-[26px] p-0">
