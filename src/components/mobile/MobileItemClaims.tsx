@@ -293,7 +293,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
         )}
       </section>
 
-        <section id="item-claim-form" className={cn('sticky top-16 z-40 rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm', standaloneRequest && 'max-h-[42vh] overflow-y-auto p-2', activeNav === 'home' ? '' : 'hidden')}>
+        <section id="item-claim-form" className={cn('sticky top-16 z-40 rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm', standaloneRequest && 'max-h-[32vh] overflow-y-auto p-1 [&_input]:h-9 [&_textarea]:min-h-14 [&_textarea]:h-14 [&_button]:h-10 [&_button]:text-sm', activeNav === 'home' ? '' : 'hidden')}>
         {showClaimControls && (
         <div className={cn('grid gap-2', showStockControls ? 'grid-cols-2' : 'grid-cols-1')}>
           {showStockControls && (
