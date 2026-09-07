@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/lib/database';
 import { hasPermission } from '@/lib/permission-check';
+import { getEmployeeSession } from '@/lib/employee-session';
 import type { User } from '@/lib/auth';
 import type { ItemClaimListResponse, ItemClaimRecord, ItemClaimStatus } from '@/types/item-management';
 
@@ -87,8 +88,11 @@ function getClaimRows(user: User, canManage: boolean) {
 export async function GET(request: NextRequest) {
   try {
     const user = await requireUser(request);
+    const employeeSession = getEmployeeSession(request);
     if (!user) {
-      return NextResponse.json<ItemClaimListResponse>({ success: false, error: '未登录' }, { status: 401 });
+      if (!employeeSession) return NextResponse.json<ItemClaimListResponse>({ success: false, error: '未登录' }, { status: 401 });
+      const rows = db.prepare('SELECT * FROM item_claim_records WHERE deleted_at IS NULL AND applicant_name = ? ORDER BY created_at DESC, id DESC').all(employeeSession.name) as ItemClaimRow[];
+      return NextResponse.json<ItemClaimListResponse>({ success: true, claims: rows.map(mapClaim) });
     }
 
     const canManage = hasPermission(user, 'administration');

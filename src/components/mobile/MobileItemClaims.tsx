@@ -101,7 +101,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false 
       }
 
       let nextClaims: ItemClaimRecord[] = [];
-      if (!standaloneRequest) {
+      {
         const claimsResponse = await fetch('/api/item-claims', { cache: 'no-store', credentials: 'include' });
         const claimsData = await claimsResponse.json().catch(() => ({})) as ItemClaimListResponse;
         if (!claimsResponse.ok || !claimsData.success) {
@@ -456,7 +456,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false 
         </section>
       }
 
-      {!standaloneRequest && (
+      {
       <section className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-base font-semibold text-slate-950">{canManage ? '领用记录' : '我的领用'}</h2>
@@ -519,7 +519,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false 
           </article>
         ))}
       </section>
-      )}
+      }
 
       <Sheet open={claimDetailOpen} onOpenChange={setClaimDetailOpen}>
         <SheetContent side="bottom" className="max-h-[86dvh] rounded-t-[26px] p-0">
