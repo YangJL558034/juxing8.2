@@ -254,8 +254,8 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
   };
 
   return (
-    <div className="space-y-4 pb-20">
-      <section className="mobile-ios-glass rounded-[30px] p-5 text-slate-950">
+    <div className={cn('space-y-4 pb-20', standaloneRequest && 'space-y-2 text-sm')}>
+      <section className={cn('mobile-ios-glass rounded-[30px] p-5 text-slate-950', standaloneRequest && 'rounded-[22px] p-3')}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold text-blue-600">行政管理</p>

@@ -25,7 +25,7 @@ export default function ItemClaimPage() {
   if (!employee) return <main className="min-h-screen bg-slate-50 px-4 py-10"><div className="mx-auto max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-sm"><h1 className="text-xl font-bold">员工身份验证</h1><p className="text-sm text-slate-500">请输入姓名和身份证号后访问物品领用。</p><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="员工姓名" /><Input value={idCard} onChange={(e) => setIdCard(e.target.value)} placeholder="身份证号" /><Button className="w-full" onClick={() => void login()}>验证并进入</Button>{error && <p className="text-sm text-red-600">{error}</p>}</div></main>;
   return (
     <main className="min-h-screen bg-slate-50 px-3 py-4">
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto w-full max-w-[380px] px-1">
         <MobileItemClaims canManage={false} standaloneRequest initialApplicantName={employee.name} />
       </div>
     </main>
