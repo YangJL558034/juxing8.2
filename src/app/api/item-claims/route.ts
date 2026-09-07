@@ -89,7 +89,6 @@ export async function GET(request: NextRequest) {
   try {
     const user = await requireUser(request);
     const employeeSession = getEmployeeSession(request);
-    const employeeSession = getEmployeeSession(request);
     if (!user) {
       if (!employeeSession) return NextResponse.json<ItemClaimListResponse>({ success: false, error: '未登录' }, { status: 401 });
       const rows = db.prepare('SELECT * FROM item_claim_records WHERE deleted_at IS NULL AND applicant_name = ? ORDER BY created_at DESC, id DESC').all(employeeSession.name) as ItemClaimRow[];
@@ -108,6 +107,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser(request);
+    const employeeSession = getEmployeeSession(request);
 
     const body = await request.json().catch(() => ({})) as CreateClaimBody;
     const applicantName = user?.name || employeeSession?.name || asText(body.applicantName);
