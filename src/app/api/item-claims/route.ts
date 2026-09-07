@@ -94,9 +94,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json<ItemClaimListResponse>({ success: true, claims: rows.map(mapClaim) });
     }
     if (!user) {
-      if (!employeeSession) return NextResponse.json<ItemClaimListResponse>({ success: false, error: '未登录' }, { status: 401 });
-      const rows = db.prepare('SELECT * FROM item_claim_records WHERE deleted_at IS NULL AND (applicant_id = ? OR (applicant_id IS NULL AND applicant_name = ?)) ORDER BY created_at DESC, id DESC').all(employeeSession.id, employeeSession.name) as ItemClaimRow[];
-      return NextResponse.json<ItemClaimListResponse>({ success: true, claims: rows.map(mapClaim) });
+      return NextResponse.json<ItemClaimListResponse>({ success: false, error: '未登录' }, { status: 401 });
     }
 
     const canManage = hasPermission(user, 'administration');
