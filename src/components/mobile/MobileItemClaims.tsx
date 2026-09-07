@@ -422,7 +422,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
               onChange={(event) => setClaimForm((current) => ({ ...current, reason: event.target.value }))}
               placeholder="领用原因"
             />
-            <Button className="h-12 w-full rounded-2xl bg-emerald-600 shadow-md hover:bg-emerald-700" onClick={submitClaim} disabled={submitting || items.length === 0}>
+            <Button className="sticky bottom-0 z-10 h-10 w-full rounded-2xl bg-emerald-600 shadow-md hover:bg-emerald-700" onClick={submitClaim} disabled={submitting || items.length === 0}>
               {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardList className="mr-2 h-4 w-4" />}
               提交申请
             </Button>
