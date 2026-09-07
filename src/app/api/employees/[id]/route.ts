@@ -89,7 +89,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const { id } = await params;
     const body = await request.json();
-    const { name, phone, department, id_card, location, status, hire_date } = body;
+    const { name, phone, department, id_card, location, status, hire_date, self_service_manager_user_id } = body;
     const employeeLocation = resolveEmployeeSalaryLocation(department, location);
 
     if (!name || !department) {
@@ -115,9 +115,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     db.prepare(`
       UPDATE employees 
-      SET name = ?, phone = ?, department = ?, id_card = ?, location = ?, status = ?, resign_date = ?, hire_date = ? 
+      SET name = ?, phone = ?, department = ?, id_card = ?, location = ?, status = ?, resign_date = ?, hire_date = ?, self_service_manager_user_id = ?
       WHERE id = ?
-    `).run(name, phone || null, department, id_card || null, employeeLocation, status || '在职', resignDate, hire_date || null, id);
+    `).run(name, phone || null, department, id_card || null, employeeLocation, status || '在职', resignDate, hire_date || null, self_service_manager_user_id ? Number(self_service_manager_user_id) : null, id);
 
     // 记录操作日志
     logOperationServer({

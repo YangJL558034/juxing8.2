@@ -1970,6 +1970,7 @@ export function initDatabase(dbInstance: Database.Database) {
   `);
 
   try { dbInstance.exec('ALTER TABLE employees ADD COLUMN avatar_url TEXT'); } catch { /* 已存在 */ }
+  try { dbInstance.exec('ALTER TABLE employees ADD COLUMN self_service_manager_user_id INTEGER'); } catch { /* 已存在 */ }
   const notificationColumns = dbInstance.prepare('PRAGMA table_info(notifications)').all() as Array<{ name: string }>;
   if (!notificationColumns.some(column => column.name === 'employee_recipient_id')) {
     dbInstance.exec('ALTER TABLE notifications ADD COLUMN employee_recipient_id INTEGER');

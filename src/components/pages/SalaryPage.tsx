@@ -86,6 +86,7 @@ interface Employee {
   attendance_check_in_time?: string | null;
   attendance_check_out_time?: string | null;
   created_at: string;
+  self_service_manager_user_id?: number | null;
 }
 
 interface MonthlyRecord {
@@ -263,7 +264,8 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
   const [newEmployee, setNewEmployee] = useState({ name: '', phone: '', id_card: '', department: '', location: 'workshop' as 'office' | 'workshop', hire_date: '' });
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showEditEmployeeDialog, setShowEditEmployeeDialog] = useState(false);
-  const [editFormData, setEditFormData] = useState({ name: '', phone: '', id_card: '', department: '', location: 'workshop' as string, status: '在职', hire_date: '' });
+  const [editFormData, setEditFormData] = useState({ name: '', phone: '', id_card: '', department: '', location: 'workshop' as string, status: '在职', hire_date: '', self_service_manager_user_id: '' });
+  const [selfServiceManagers, setSelfServiceManagers] = useState<Array<{ id: number; name: string; role: string; department?: string | null }>>([]);
   const [monthlyRecords, setMonthlyRecords] = useState<MonthlyRecord[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequestRecord[]>([]);
   const [attendanceClock, setAttendanceClock] = useState<{ today: string; currentTime: string } | null>(null);
@@ -777,6 +779,9 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
     fetchEmployees();
     fetchMonthlyRecords();
     fetchLeaveRequests();
+    void fetch('/api/users', { cache: 'no-store' }).then((response) => response.json()).then((payload: { success?: boolean; users?: Array<{ id: number; name: string; role: string; department?: string | null }> }) => {
+      if (payload.success) setSelfServiceManagers((payload.users || []).filter((user) => ['admin', 'super_admin', 'manager', 'dept_manager'].includes(user.role)));
+    }).catch(() => undefined);
   }, []);
 
   // 自动刷新 - 每10秒更新一次工资工时数据
@@ -1126,7 +1131,8 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
       department: employee.department || '',
       location: employee.location || 'workshop',
       status: employee.status || '在职',
-      hire_date: employee.hire_date || ''
+      hire_date: employee.hire_date || '',
+      self_service_manager_user_id: employee.self_service_manager_user_id ? String(employee.self_service_manager_user_id) : '',
     });
     setShowEditEmployeeDialog(true);
   };
@@ -1566,7 +1572,8 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                                       department: emp.department || '',
                                       location: normalizeLocation(emp.location),
                                       status: emp.status || '在职',
-                                      hire_date: emp.hire_date || ''
+                                       hire_date: emp.hire_date || '',
+                                       self_service_manager_user_id: emp.self_service_manager_user_id ? String(emp.self_service_manager_user_id) : ''
                                     });
                                     setShowEditEmployeeDialog(true);
                                   }}
@@ -1651,7 +1658,8 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                                       department: emp.department || '',
                                       location: normalizeLocation(emp.location),
                                       status: emp.status || '在职',
-                                      hire_date: emp.hire_date || ''
+                                       hire_date: emp.hire_date || '',
+                                       self_service_manager_user_id: emp.self_service_manager_user_id ? String(emp.self_service_manager_user_id) : ''
                                     });
                                     setShowEditEmployeeDialog(true);
                                   }}
@@ -2916,6 +2924,19 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                   办公室
                 </Button>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>员工自助平台管理者</Label>
+              <Select value={editFormData.self_service_manager_user_id || 'none'} onValueChange={(value) => setEditFormData({ ...editFormData, self_service_manager_user_id: value === 'none' ? '' : value })}>
+                <SelectTrigger><SelectValue placeholder="选择办公室/车间主管" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">不指定</SelectItem>
+                  {selfServiceManagers.filter((manager) => !manager.department || !editFormData.department || manager.department === editFormData.department).map((manager) => (
+                    <SelectItem key={manager.id} value={String(manager.id)}>{manager.name}（{manager.role === 'admin' || manager.role === 'super_admin' ? '管理员' : '主管'}）</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">主管登录员工自助平台后，可审核该员工的申请。</p>
             </div>
           </div>
           <DialogFooter>

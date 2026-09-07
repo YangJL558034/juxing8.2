@@ -46,8 +46,8 @@ export function canReviewPersonnel(user: User | null | undefined, department?: s
     const subordinate = db.prepare(`
       SELECT 1 FROM employees e
       LEFT JOIN departments d ON CAST(d.id AS TEXT) = e.department
-      WHERE e.id = ? AND (e.manager_id = ? OR e.department = ? OR d.name = ?)
-    `).get(employeeId, user.id, user.department || '', user.department || '');
+      WHERE e.id = ? AND (e.manager_id = ? OR e.self_service_manager_user_id = ? OR e.department = ? OR d.name = ?)
+    `).get(employeeId, user.id, user.id, user.department || '', user.department || '');
     if (subordinate) return true;
   }
   return false;
