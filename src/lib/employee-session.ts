@@ -14,8 +14,6 @@ export function setEmployeeSession(response: NextResponse, employeeId: number) {
 }
 
 export function getEmployeeSession(request: NextRequest) {
-  const origin = request.headers.get('origin');
-  if (origin && origin !== request.nextUrl.origin) return null;
   const token = request.cookies.get(cookieName)?.value;
   if (!token) return null;
   return db.prepare(`SELECT e.id, e.name FROM employee_sessions s JOIN employees e ON e.id = s.employee_id
