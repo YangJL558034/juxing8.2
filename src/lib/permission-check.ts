@@ -43,12 +43,24 @@ export function canReviewPersonnel(user: User | null | undefined, department?: s
     if (sameDepartment) return true;
   }
   if (employeeId) {
+    const locationRow = db.prepare('SELECT location FROM employees WHERE id = ?').get(employeeId) as { location?: string } | undefined;
+    if (locationRow?.location) {
+      const assigned = db.prepare('SELECT 1 FROM employee_self_service_managers WHERE location = ? AND user_id = ?').get(locationRow.location, user.id);
+      if (assigned) return true;
+    }
     const subordinate = db.prepare(`
       SELECT 1 FROM employees e
       LEFT JOIN departments d ON CAST(d.id AS TEXT) = e.department
       WHERE e.id = ? AND (e.manager_id = ? OR e.self_service_manager_user_id = ? OR e.department = ? OR d.name = ?)
     `).get(employeeId, user.id, user.id, user.department || '', user.department || '');
     if (subordinate) return true;
+  }
+  if (department) {
+    const location = db.prepare('SELECT location FROM employees WHERE department = ? LIMIT 1').get(department) as { location?: string } | undefined;
+    if (location?.location) {
+      const assigned = db.prepare('SELECT 1 FROM employee_self_service_managers WHERE location = ? AND user_id = ?').get(location.location, user.id);
+      if (assigned) return true;
+    }
   }
   return false;
 }

@@ -1983,6 +1983,11 @@ export function initDatabase(dbInstance: Database.Database) {
       employee_id INTEGER NOT NULL, notification_id INTEGER NOT NULL,
       read_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(employee_id, notification_id)
     );
+    CREATE TABLE IF NOT EXISTS employee_self_service_managers (
+      location TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   dbInstance.exec(`
     CREATE INDEX IF NOT EXISTS idx_notifications_receiver_created ON notifications(receiver_id, created_at DESC);

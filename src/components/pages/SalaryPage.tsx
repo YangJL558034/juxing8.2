@@ -266,6 +266,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
   const [showEditEmployeeDialog, setShowEditEmployeeDialog] = useState(false);
   const [editFormData, setEditFormData] = useState({ name: '', phone: '', id_card: '', department: '', location: 'workshop' as string, status: '在职', hire_date: '', self_service_manager_user_id: '' });
   const [selfServiceManagers, setSelfServiceManagers] = useState<Array<{ id: number; name: string; role: string; department?: string | null }>>([]);
+  const [platformManagerIds, setPlatformManagerIds] = useState<{ office: string; workshop: string }>({ office: '', workshop: '' });
   const [monthlyRecords, setMonthlyRecords] = useState<MonthlyRecord[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequestRecord[]>([]);
   const [attendanceClock, setAttendanceClock] = useState<{ today: string; currentTime: string } | null>(null);
@@ -782,7 +783,15 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
     void fetch('/api/users', { cache: 'no-store' }).then((response) => response.json()).then((payload: { success?: boolean; users?: Array<{ id: number; name: string; role: string; department?: string | null }> }) => {
       if (payload.success) setSelfServiceManagers((payload.users || []).filter((user) => ['admin', 'super_admin', 'manager', 'dept_manager'].includes(user.role)));
     }).catch(() => undefined);
+    void fetch('/api/employee-self-service/managers', { cache: 'no-store' }).then((response) => response.json()).then((payload: { success?: boolean; managers?: Array<{ location: 'office' | 'workshop'; user_id: number }> }) => {
+      if (payload.success) setPlatformManagerIds({ office: String(payload.managers?.find((item) => item.location === 'office')?.user_id || ''), workshop: String(payload.managers?.find((item) => item.location === 'workshop')?.user_id || '') });
+    }).catch(() => undefined);
   }, []);
+
+  const updatePlatformManager = async (location: 'office' | 'workshop', userId: string) => {
+    setPlatformManagerIds((current) => ({ ...current, [location]: userId === 'none' ? '' : userId }));
+    await fetch('/api/employee-self-service/managers', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location, userId: userId === 'none' ? null : Number(userId) }) });
+  };
 
   // 自动刷新 - 每10秒更新一次工资工时数据
   const { refreshNow } = useAutoRefresh({
@@ -1502,6 +1511,14 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                     <FileDown className="h-4 w-4 mr-1" />
                     导出
                   </Button>
+                  <Select value={platformManagerIds.office || 'none'} onValueChange={(value) => void updatePlatformManager('office', value)}>
+                    <SelectTrigger className="w-36"><SelectValue placeholder="办公室管理者" /></SelectTrigger>
+                    <SelectContent><SelectItem value="none">办公室：未设置</SelectItem>{selfServiceManagers.map((manager) => <SelectItem key={`office-${manager.id}`} value={String(manager.id)}>办公室：{manager.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <Select value={platformManagerIds.workshop || 'none'} onValueChange={(value) => void updatePlatformManager('workshop', value)}>
+                    <SelectTrigger className="w-36"><SelectValue placeholder="车间管理者" /></SelectTrigger>
+                    <SelectContent><SelectItem value="none">车间：未设置</SelectItem>{selfServiceManagers.map((manager) => <SelectItem key={`workshop-${manager.id}`} value={String(manager.id)}>车间：{manager.name}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardHeader>
@@ -3017,19 +3034,6 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                   车间
                 </Button>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>员工自助平台管理者</Label>
-              <Select value={editFormData.self_service_manager_user_id || 'none'} onValueChange={(value) => setEditFormData({ ...editFormData, self_service_manager_user_id: value === 'none' ? '' : value })}>
-                <SelectTrigger><SelectValue placeholder="选择办公室/车间主管" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">不指定</SelectItem>
-                  {selfServiceManagers.filter((manager) => !manager.department || !editFormData.department || manager.department === editFormData.department).map((manager) => (
-                    <SelectItem key={manager.id} value={String(manager.id)}>{manager.name}（{manager.role === 'admin' || manager.role === 'super_admin' ? '管理员' : '主管'}）</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">主管登录员工自助平台后，可审核该员工的申请。</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-hire-date">入职日期</Label>
