@@ -281,6 +281,8 @@ export default function EmployeeSelfServicePortal() {
   };
 
   const reviewApplication = async (type: string, id: number, status: '已审核' | '已驳回') => {
+    const actionLabel = status === '已审核' ? '审核通过' : '驳回申请';
+    if (!window.confirm(`确定${actionLabel}这条${type}吗？\n审核人：${data.employee.name}`)) return;
     setError('');
     try {
       const response = await fetch('/api/employee-self-service/manager/applications', {

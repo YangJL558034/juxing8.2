@@ -233,6 +233,8 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
   };
 
   const reviewClaim = async (claim: ItemClaimRecord, action: 'approve' | 'reject') => {
+    const actionLabel = action === 'approve' ? '审核通过' : '驳回申请';
+    if (!window.confirm(`确定${actionLabel}「${claim.itemName}」吗？`)) return;
     setReviewingId(claim.id);
     try {
       const response = await fetch(`/api/item-claims/${claim.id}/review`, {
