@@ -33,6 +33,12 @@ export function hasAnyPermission(user: User | null | undefined, permissions: str
 export function canReviewPersonnel(user: User | null | undefined, department?: string | null, employeeId?: number | null) {
   if (!user) return false;
   if (user.role === 'admin' || user.role === 'super_admin') return true;
+  const assignedLocation = employeeId
+    ? (db.prepare('SELECT location FROM employees WHERE id = ?').get(employeeId) as { location?: string } | undefined)?.location
+    : department
+      ? (db.prepare('SELECT location FROM employees WHERE department = ? LIMIT 1').get(department) as { location?: string } | undefined)?.location
+      : undefined;
+  if (assignedLocation && db.prepare('SELECT 1 FROM employee_self_service_managers WHERE location = ? AND user_id = ?').get(assignedLocation, user.id)) return true;
   if (user.role !== 'manager' && user.role !== 'dept_manager') return false;
   if (department && user.department && department === user.department) return true;
   if (department && user.department) {

@@ -781,7 +781,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
     fetchMonthlyRecords();
     fetchLeaveRequests();
     void fetch('/api/users', { cache: 'no-store' }).then((response) => response.json()).then((payload: { success?: boolean; users?: Array<{ id: number; name: string; role: string; department?: string | null }> }) => {
-      if (payload.success) setSelfServiceManagers((payload.users || []).filter((user) => ['admin', 'super_admin', 'manager', 'dept_manager'].includes(user.role)));
+      if (payload.success) setSelfServiceManagers(payload.users || []);
     }).catch(() => undefined);
     void fetch('/api/employee-self-service/managers', { cache: 'no-store' }).then((response) => response.json()).then((payload: { success?: boolean; managers?: Array<{ location: 'office' | 'workshop'; user_id: number }> }) => {
       if (payload.success) setPlatformManagerIds({ office: String(payload.managers?.find((item) => item.location === 'office')?.user_id || ''), workshop: String(payload.managers?.find((item) => item.location === 'workshop')?.user_id || '') });
