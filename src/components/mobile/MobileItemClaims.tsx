@@ -299,7 +299,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
 
         <section id="item-claim-form" className={cn('sticky top-16 z-40 rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm', standaloneRequest && 'max-h-[32vh] overflow-y-auto p-1 [&_input]:h-9 [&_textarea]:min-h-14 [&_textarea]:h-14 [&_button]:h-10 [&_button]:text-sm', activeNav === 'home' ? '' : 'hidden')}>
         {showClaimControls && (
-        <div className={cn('grid gap-2', showStockControls ? 'grid-cols-2' : 'grid-cols-1')}>
+        <div className={cn('grid gap-2', showStockControls ? 'grid-cols-3' : 'grid-cols-1')}>
           {showStockControls && (
             <Button
               variant="outline"
@@ -313,6 +313,7 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
               物品入库
             </Button>
           )}
+          {showStockControls && <Button variant="outline" className="h-12 rounded-2xl text-base font-semibold" onClick={() => { setActiveNav('claims'); setStockOpen(false); setClaimOpen(false); }}><ClipboardList className="mr-2 h-4 w-4" />审核物品</Button>}
           <Button
             className="h-12 rounded-2xl bg-blue-600 text-base font-semibold hover:bg-blue-700"
             onClick={() => {
@@ -475,14 +476,14 @@ export default function MobileItemClaims({ canManage, standaloneRequest = false,
       <section id="item-claim-history" className={cn('space-y-3', activeNav === 'claims' || activeNav === 'apply' ? '' : 'hidden')}>
         <div className="flex items-center justify-between px-1">
           <h2 className="text-base font-semibold text-slate-950">{activeNav === 'apply' ? '申请中的物品' : canManage ? '领用记录' : '我的领用'}</h2>
-          <span className="text-sm text-slate-500">{claims.filter((claim) => activeNav === 'claims' ? claim.status === '已审核' : claim.status !== '已审核').length} 条</span>
+          <span className="text-sm text-slate-500">{claims.filter((claim) => activeNav === 'claims' ? (canManage ? claim.status === '待审核' : claim.status === '已审核') : claim.status !== '已审核').length} 条</span>
         </div>
 
         {!loading && claims.filter((claim) => activeNav === 'claims' ? claim.status === '已审核' : claim.status !== '已审核').length === 0 && (
           <div className="rounded-[24px] border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">暂无领用记录</div>
         )}
 
-        {claims.filter((claim) => activeNav === 'claims' ? claim.status === '已审核' : claim.status !== '已审核').map((claim) => (
+          {claims.filter((claim) => activeNav === 'claims' ? (canManage ? claim.status === '待审核' : claim.status === '已审核') : claim.status !== '已审核').map((claim) => (
           <article
             key={claim.id}
             className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm transition active:scale-[0.99]"
