@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/database';
 import { chinaNowSql } from '@/lib/china-time';
+import { getCurrentUser } from '@/lib/auth';
 
 interface OperationLogRow {
   details?: string | null;
@@ -23,6 +24,10 @@ interface OperationLogBody {
 // 获取操作日志列表
 export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser(request.headers.get('cookie'));
+    if (!user || !['admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ success: false, error: '无权查看操作日志' }, { status: 403 });
+    }
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '50');
@@ -76,16 +81,20 @@ export async function GET(request: NextRequest) {
 // 记录操作日志
 export async function POST(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUser(request.headers.get('cookie'));
+    if (!currentUser) {
+      return NextResponse.json({ success: false, error: '请先登录' }, { status: 401 });
+    }
     const body = await request.json() as OperationLogBody;
-    const { userId, userName, action, details, ipAddress, userAgent } = body;
+    const { action, details, ipAddress, userAgent } = body;
     const moduleName = body.module;
 
     // 参数映射：details -> description
     const description = typeof details === 'string' ? details : JSON.stringify(details || '');
 
     query.operationLogs.create.run(
-      userId || null,
-      userName || '未知用户',
+      currentUser.id,
+      currentUser.name || currentUser.username,
       moduleName,
       action,
       description,
@@ -94,7 +103,7 @@ export async function POST(request: NextRequest) {
       chinaNowSql()
     );
 
-    console.log('操作日志记录成功:', { userId, userName, module: moduleName, action });
+    console.log('操作日志记录成功:', { userId: currentUser.id, userName: currentUser.name, module: moduleName, action });
 
     return NextResponse.json({ success: true });
   } catch (error) {
