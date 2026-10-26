@@ -151,6 +151,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: '姓名或身份证号格式不正确' }, { status: 400 });
     }
 
+    // lite=true 表示只做登录验证，不返回工资/考勤等大对象（给小程序用，大幅减小响应体积）
+    const lite = searchParams.get('lite') === 'true';
+
     // 必须通过姓名+身份证精确匹配
     const employee = query.getEmployeeByNameAndIdCard.get(normalizedName, normalizedIdCard) as {
       id: number;
@@ -180,6 +183,23 @@ export async function GET(request: NextRequest) {
         success: false, 
         error: '该员工已离职，无法查询' 
       });
+    }
+
+    // lite 模式：只返回员工基本信息，跳过所有大对象查询（工资、考勤、请假等）
+    if (lite) {
+      const managerAssignment = db.prepare('SELECT location FROM employee_self_service_managers WHERE employee_id = ?').get(employee.id) as { location: string } | undefined;
+      const response = NextResponse.json({
+        success: true,
+        employee: { ...employee, isSelfServiceManager: Boolean(managerAssignment), selfServiceManagerLocation: managerAssignment?.location },
+        salaryRecords: [],
+        attendanceRecords: [],
+        leaveRecords: [],
+        missingPunchRecords: [],
+        serviceSummary: { onboarding: null, socialSecurity: [], socialSecurityPurchase: [], notifications: [], resignationRecords: [], regularizationRecords: [], workCertificateRecords: [] },
+      });
+      response.headers.set('Cache-Control', 'no-store');
+      setEmployeeSession(response, employee.id);
+      return response;
     }
 
     // 获取工时记录（月度汇总）- 作为工资记录返回。
