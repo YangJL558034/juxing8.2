@@ -188,9 +188,11 @@ export async function GET(request: NextRequest) {
     // lite 模式：只返回员工基本信息，跳过所有大对象查询（工资、考勤、请假等）
     if (lite) {
       const managerAssignment = db.prepare('SELECT location FROM employee_self_service_managers WHERE employee_id = ?').get(employee.id) as { location: string } | undefined;
+      // 过滤掉 avatar_url（base64 大图片，100KB+），小程序不需要
+      const { avatar_url, ...employeeLite } = employee as typeof employee & { avatar_url?: string };
       const response = NextResponse.json({
         success: true,
-        employee: { ...employee, isSelfServiceManager: Boolean(managerAssignment), selfServiceManagerLocation: managerAssignment?.location },
+        employee: { ...employeeLite, isSelfServiceManager: Boolean(managerAssignment), selfServiceManagerLocation: managerAssignment?.location },
         salaryRecords: [],
         attendanceRecords: [],
         leaveRecords: [],
