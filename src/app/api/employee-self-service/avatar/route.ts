@@ -4,9 +4,18 @@ import { getEmployeeSession } from '@/lib/employee-session';
 
 export async function POST(request: NextRequest) {
   try {
-    const employee = getEmployeeSession(request);
-    if (!employee) return NextResponse.json({ success: false, error: '请重新登录员工平台' }, { status: 401 });
     const form = await request.formData();
+    // 优先 session，fallback 到 name+idCard（给小程序用）
+    let employee = getEmployeeSession(request);
+    if (!employee) {
+      const name = (form.get('employeeName') as string)?.trim();
+      const idCard = (form.get('idCard') as string)?.trim();
+      if (name && idCard) {
+        const row = db.prepare('SELECT id, name FROM employees WHERE name = ? AND id_card = ?').get(name, idCard) as { id: number; name: string } | undefined;
+        if (row) employee = row;
+      }
+    }
+    if (!employee) return NextResponse.json({ success: false, error: '请重新登录员工平台' }, { status: 401 });
     const file = form.get('file');
     if (!(file instanceof File)) return NextResponse.json({ success: false, error: '头像信息不完整' }, { status: 400 });
     if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 5 * 1024 * 1024) return NextResponse.json({ success: false, error: '请上传不超过5MB的 JPG、PNG、WebP 或 GIF 图片' }, { status: 400 });
