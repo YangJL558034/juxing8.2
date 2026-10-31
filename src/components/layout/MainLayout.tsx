@@ -27,6 +27,7 @@ import PurchaseRequestsPage from '@/components/pages/PurchaseRequestsPage';
 import ExpenseClaimsPage from '@/components/pages/ExpenseClaimsPage';
 import OrganizationPage from '@/components/pages/OrganizationPage';
 import PersonnelPage, { type PersonnelSectionKey } from '@/components/pages/PersonnelPage';
+import AccountCancelPage from '@/components/pages/AccountCancelPage';
 import AdministrationPage, { type AdministrationSectionKey } from '@/components/pages/AdministrationPage';
 import HumanResourcesPage from '@/components/pages/HumanResourcesPage';
 import PermissionPage from '@/components/pages/PermissionPage';
@@ -37,7 +38,7 @@ import RealtimeChatPage from '@/components/pages/RealtimeChatPage';
 import NotificationCenterPage from '@/components/pages/NotificationCenterPage';
 import { logOperation, LogActions } from '@/lib/log';
 
-type PageKey = 'dashboard' | 'taskmanage' | 'distribution' | 'todo' | 'leads' | 'customers' | 'contacts' | 'contracts' | 'invoices' | 'followup' | 'products' | 'finance' | 'tasks' | 'salary' | 'generate' | 'ai-chat' | 'realtime-chat' | 'assets' | 'organization' | 'personnel' | 'administration' | 'human-resources' | 'permission' | 'purchase-requests' | 'expense-claims' | 'approval-center' | 'finance-review' | 'smtp' | 'usermanage' | 'operation-logs' | 'settings' | 'notification-center';
+type PageKey = 'dashboard' | 'taskmanage' | 'distribution' | 'todo' | 'leads' | 'customers' | 'contacts' | 'contracts' | 'invoices' | 'followup' | 'products' | 'finance' | 'tasks' | 'salary' | 'generate' | 'ai-chat' | 'realtime-chat' | 'assets' | 'organization' | 'personnel' | 'administration' | 'human-resources' | 'permission' | 'purchase-requests' | 'expense-claims' | 'approval-center' | 'finance-review' | 'smtp' | 'usermanage' | 'operation-logs' | 'account-cancels' | 'settings' | 'notification-center';
 
 const pageNames: Record<string, string> = {
   dashboard: '仪表板',
@@ -73,6 +74,7 @@ const pageNames: Record<string, string> = {
   'personnel-resignation': '离职申请',
   'personnel-resignation-certificate': '离职证明',
   'personnel-labor-termination': '解除劳动合同',
+  'personnel-labor-contract': '劳动合同',
   'personnel-leave-request': '请假申请',
   administration: '行政管理',
   'administration-dormitory': '住宿申请',
@@ -88,6 +90,7 @@ const pageNames: Record<string, string> = {
   smtp: '邮件配置',
   usermanage: '用户管理',
   'operation-logs': '操作日志',
+  'account-cancels': '账号注销申请',
   settings: '系统设置',
   'notification-center': '通知中心',
 };
@@ -102,6 +105,7 @@ const pagePermissionMap: Record<string, string> = {
   'personnel-resignation': 'personnel',
   'personnel-resignation-certificate': 'personnel',
   'personnel-labor-termination': 'personnel',
+  'personnel-labor-contract': 'personnel',
   'personnel-leave-request': 'personnel',
   assets: 'assets',
   'assets-overview': 'assets',
@@ -128,6 +132,7 @@ const personnelSectionMap: Record<string, { section: PersonnelSectionKey; label:
   'personnel-resignation': { section: 'resignation', label: '离职申请' },
   'personnel-resignation-certificate': { section: 'resignation-certificate', label: '离职证明' },
   'personnel-labor-termination': { section: 'labor-termination', label: '解除劳动合同' },
+  'personnel-labor-contract': { section: 'labor-contract', label: '劳动合同' },
   'personnel-leave-request': { section: 'leave-request', label: '请假申请' },
 };
 
@@ -517,6 +522,8 @@ export function MainLayout({ user }: MainLayoutProps) {
         return <SmtpConfigPage />;
       case 'operation-logs':
         return <OperationLogsPage />;
+      case 'account-cancels':
+        return <AccountCancelPage />;
       case 'settings':
         return <SettingsPage />;
       case 'notification-center':

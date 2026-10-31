@@ -136,6 +136,7 @@ const modulePermissionMap: Record<string, string> = {
   'personnel-resignation': 'personnel',
   'personnel-resignation-certificate': 'personnel',
   'personnel-labor-termination': 'personnel',
+  'personnel-labor-contract': 'personnel',
   'personnel-leave-request': 'personnel',
   'administration': 'administration',
   'administration-dormitory': 'administration',

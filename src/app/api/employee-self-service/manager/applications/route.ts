@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
-import { getEmployeeSession } from '@/lib/employee-session';
+import { getEmployeeByRequest as getEmployeeSession } from '@/lib/employee-session';
 
 function managerLocation(employeeId: number) {
   const location = (db.prepare('SELECT location FROM employee_self_service_managers WHERE employee_id = ?').get(employeeId) as { location?: string } | undefined)?.location;

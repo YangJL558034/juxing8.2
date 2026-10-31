@@ -174,6 +174,70 @@ function ensureChinaTimeTriggers(dbInstance: Database.Database) {
   }
 }
 
+// 微信一键登录：employees 增加 wx_openid
+function ensureWechatOpenidMigration(dbInstance: Database.Database) {
+  try {
+    const cols = dbInstance.prepare('PRAGMA table_info(employees)').all() as Array<{ name: string }>;
+    if (!cols.some((c) => c.name === 'wx_openid')) {
+      dbInstance.exec('ALTER TABLE employees ADD COLUMN wx_openid TEXT');
+    }
+    dbInstance.exec('CREATE INDEX IF NOT EXISTS idx_employees_wx_openid ON employees (wx_openid)');
+  } catch (e) {
+    console.error('ensureWechatOpenidMigration error:', e);
+  }
+}
+
+// 劳动合同：补充合同提醒相关列 + 提醒发送记录表
+function ensureLaborContractMigration(dbInstance: Database.Database) {
+  try {
+    const cols = dbInstance.prepare('PRAGMA table_info(social_security_purchase_records)').all() as Array<{ name: string }>;
+    const required: Array<[string, string]> = [
+      ['contract_reminder_sent_at', 'TEXT'],
+      ['contract_signed_at', 'TEXT'],
+    ];
+    for (const [col, colType] of required) {
+      if (!cols.some((c) => c.name === col)) {
+        dbInstance.exec(`ALTER TABLE social_security_purchase_records ADD COLUMN ${col} ${colType}`);
+      }
+    }
+    dbInstance.exec(`
+      CREATE TABLE IF NOT EXISTS labor_contract_reminders (
+        employee_id INTEGER PRIMARY KEY,
+        sent_at TEXT NOT NULL,
+        sent_to TEXT
+      )
+    `);
+    dbInstance.exec(`
+      CREATE TABLE IF NOT EXISTS labor_contract_renewals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_id INTEGER NOT NULL,
+        employee_name TEXT NOT NULL,
+        id_card TEXT,
+        department TEXT,
+        category TEXT,
+        status TEXT NOT NULL DEFAULT '待审核',
+        old_start_date TEXT,
+        old_end_date TEXT,
+        new_start_date TEXT,
+        new_end_date TEXT,
+        term_years TEXT,
+        applied_by TEXT,
+        applied_at TEXT NOT NULL,
+        reviewer_name TEXT,
+        reviewed_at TEXT,
+        remark TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    dbInstance.exec(`
+      CREATE INDEX IF NOT EXISTS idx_contract_renewals_status
+      ON labor_contract_renewals (status, applied_at DESC)
+    `);
+  } catch (e) {
+    console.error('ensureLaborContractMigration error:', e);
+  }
+}
+
 function ensureOperationLogsChinaTimeMigration(dbInstance: Database.Database) {
   dbInstance.exec(`
     CREATE TABLE IF NOT EXISTS app_time_migrations (
@@ -2600,14 +2664,16 @@ export function initDatabase(dbInstance: Database.Database) {
   dbInstance.pragma('foreign_keys = ON');
   ensureChinaTimeTriggers(dbInstance);
   ensureOperationLogsChinaTimeMigration(dbInstance);
+  ensureLaborContractMigration(dbInstance);
+  ensureWechatOpenidMigration(dbInstance);
   ensureEmployeeSalaryLocationMigration(dbInstance);
   ensureProductionEmployeesWorkshopMigration(dbInstance);
   
-  // 清理35天前的过期日志
+  // 清理过期日志（操作日志保留 1 年）
   console.log('数据库初始化完成，开始清理过期日志...');
   try {
-    // 清理35天前的操作日志
-    const cutoffDateStr = formatChinaDateTime(Date.now() - 35 * 24 * 60 * 60 * 1000);
+    // 清理 1 年前的操作日志（保留 365 天）
+    const cutoffDateStr = formatChinaDateTime(Date.now() - 365 * 24 * 60 * 60 * 1000);
     
     // 检查 operation_logs 表是否存在
     const opTableExists = dbInstance
@@ -2615,10 +2681,13 @@ export function initDatabase(dbInstance: Database.Database) {
       .get();
     
     if (opTableExists) {
+      // 保留 1 年，数据量变大，补上时间索引让查询和清理都不至于全表扫描
+      dbInstance.exec('CREATE INDEX IF NOT EXISTS idx_operation_logs_created_at ON operation_logs (created_at)');
+      dbInstance.exec('CREATE INDEX IF NOT EXISTS idx_operation_logs_module ON operation_logs (module)');
       const opResult = dbInstance
         .prepare('DELETE FROM operation_logs WHERE created_at < ?')
         .run(cutoffDateStr);
-      console.log(`已删除 ${opResult.changes} 条过期操作日志`);
+      console.log(`已删除 ${opResult.changes} 条过期操作日志（保留 365 天）`);
     }
     
     // 检查 chat_messages 表是否存在
@@ -2976,7 +3045,7 @@ export const query = {
     getByUserId: db.prepare('SELECT * FROM operation_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'),
     getByModule: db.prepare('SELECT ol.*, u.name as user_name FROM operation_logs ol LEFT JOIN users u ON ol.user_id = u.id WHERE ol.module = ? ORDER BY ol.created_at DESC'),
     create: db.prepare('INSERT INTO operation_logs (user_id, username, module, action, description, ip_address, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'),
-    deleteOld: db.prepare("DELETE FROM operation_logs WHERE created_at < datetime('now', '+8 hours', '-90 days')"),
+    deleteOld: db.prepare("DELETE FROM operation_logs WHERE created_at < datetime('now', '+8 hours', '-365 days')"),
   },
   
   // 职位层级相关

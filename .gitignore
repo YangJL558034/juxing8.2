@@ -69,7 +69,7 @@ output.log
 *.log.*
 logs/
 
-# 视频文件
+# 瑙嗛鏂囦欢
 *.mp4
 *.avi
 *.mov
@@ -85,14 +85,14 @@ logs/
 *.rmvb
 *.vob
 
-# 归档文件
+# 褰掓。鏂囦欢
 *.iso
 *.dmg
 *.rar
 *.zip
 *.gz
 
-# 文档类也默认加入
+# 鏂囨。绫讳篃榛樿鍔犲叆
 *.pdf
 *.docx
 !src/templates/onboarding-template.docx
@@ -111,3 +111,6 @@ logs/
 *.xlsx
 !src/templates/dormitory-application-template.xlsx
 *.csv
+*.tsbuildinfo
+data/*.db-shm
+data/*.db-wal

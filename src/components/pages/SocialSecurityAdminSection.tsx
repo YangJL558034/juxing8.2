@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, Eye, FileCheck2, FileText, Loader2, Pencil, RefreshCcw, RotateCcw, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -107,6 +107,8 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
   const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | SocialSecurityDocumentType>('all');
+  // 管理部 / 车间 分类（声明记录没有 category 字段，按部门判断）
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'management' | 'production'>('all');
   const [listMode, setListMode] = useState<ListMode>('active');
   const [viewOpen, setViewOpen] = useState(false);
   const [viewTarget, setViewTarget] = useState<SocialSecurityRecord | null>(null);
@@ -114,6 +116,10 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
   const [editTarget, setEditTarget] = useState<SocialSecurityRecord | null>(null);
   const [editData, setEditData] = useState<SocialSecurityFormData>(() => createDefaultSocialSecurityData());
   const [saving, setSaving] = useState(false);
+  // 新建申请（购买 / 不购买社保）
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createData, setCreateData] = useState<SocialSecurityFormData>(() => createDefaultSocialSecurityData('no_purchase'));
+  const [createSaving, setCreateSaving] = useState(false);
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
@@ -140,6 +146,16 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
   useEffect(() => {
     void loadRecords();
   }, [loadRecords]);
+
+  // 按部门归到 管理部 / 车间
+  const visibleRecords = useMemo(() => {
+    if (categoryFilter === 'all') return records;
+    return records.filter((record) => {
+      const department = String(record.department || '');
+      const isProduction = /生产|车间|产线|流水/.test(department);
+      return categoryFilter === 'production' ? isProduction : !isProduction;
+    });
+  }, [records, categoryFilter]);
 
   const updateField = <K extends keyof SocialSecurityFormData>(field: K, value: SocialSecurityFormData[K]) => {
     setEditData((current) => ({ ...current, [field]: value }));
@@ -177,7 +193,54 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
     }
   };
 
+  // ===== 新建申请（购买 / 不购买社保）=====
+  const openCreate = (type: SocialSecurityDocumentType) => {
+    setCreateData(createDefaultSocialSecurityData(type));
+    setCreateOpen(true);
+  };
+
+  const updateCreateField = <K extends keyof SocialSecurityFormData>(field: K, value: SocialSecurityFormData[K]) => {
+    setCreateData((current) => ({ ...current, [field]: value }));
+  };
+
+  const switchCreateType = (type: SocialSecurityDocumentType) => {
+    setCreateData((current) => ({
+      ...createDefaultSocialSecurityData(type),
+      name: current.name,
+      idCard: current.idCard,
+      phone: current.phone,
+      department: current.department,
+      position: current.position,
+      hireDate: current.hireDate,
+      applicationDate: current.applicationDate,
+    }));
+  };
+
+  const submitCreate = async () => {
+    if (!createData.name.trim()) { alert('请填写姓名'); return; }
+    if (!createData.idCard.trim()) { alert('请填写身份证号'); return; }
+    setCreateSaving(true);
+    try {
+      const response = await fetch('/api/social-security', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: createData }),
+      });
+      const result = await response.json().catch(() => ({})) as MutateResponse;
+      if (!response.ok || !result.success) throw new Error(result.error || '创建社保申请失败');
+      setCreateOpen(false);
+      await loadRecords();
+    } catch (createError) {
+      alert(createError instanceof Error ? createError.message : '创建社保申请失败');
+    } finally {
+      setCreateSaving(false);
+    }
+  };
+
   const exportRecord = (record: SocialSecurityRecord) => {
+    if (record.documentType === 'purchase') {      alert('购买社保申请无需导出声明文档，请到下方「购买社保」记录里办理');
+      return;
+    }
     if (record.status === '待审核') {
       alert('请先审核社保申请，再导出或打印');
       return;
@@ -265,12 +328,29 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
             />
           </div>
           <Button variant="outline" onClick={runSearch}>搜索</Button>
+          {([
+            ['all', '全部部门'],
+            ['management', '管理部'],
+            ['production', '车间'],
+          ] as Array<['all' | 'management' | 'production', string]>).map(([key, label]) => (
+            <Button
+              key={key}
+              variant={categoryFilter === key ? 'default' : 'outline'}
+              className={categoryFilter === key ? 'bg-blue-600 hover:bg-blue-700' : ''}
+              onClick={() => setCategoryFilter(key)}
+            >
+              {label}
+            </Button>
+          ))}
           <Button
             variant={typeFilter === 'all' ? 'default' : 'outline'}
             className={typeFilter === 'all' ? 'bg-slate-950 hover:bg-slate-800' : ''}
             onClick={() => setTypeFilter('all')}
           >
             全部
+          </Button>
+          <Button className="bg-amber-500 hover:bg-amber-600" onClick={() => openCreate('no_purchase')}>
+            填写不购买社保
           </Button>
           <Button
             variant={listMode === 'active' ? 'default' : 'outline'}
@@ -320,7 +400,7 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
             </TableRow>
           </TableHeader>
           <YearMonthGroupedTableBody
-            records={records}
+            records={visibleRecords}
             loading={loading}
             colSpan={listMode === 'deleted' ? 14 : 13}
             loadingText="正在加载社保申请..."
@@ -364,10 +444,12 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
                             审核
                           </Button>
                         )}
-                        <Button variant="outline" size="sm" onClick={() => exportRecord(record)}>
-                          <Download className="h-4 w-4" />
-                          导出
-                        </Button>
+                        {record.documentType !== 'purchase' && (
+                          <Button variant="outline" size="sm" onClick={() => exportRecord(record)}>
+                            <Download className="h-4 w-4" />
+                            导出
+                          </Button>
+                        )}
                         <Button variant="outline" size="sm" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => deleteRecord(record)}>
                           <Trash2 className="h-4 w-4" />
                           删除
@@ -417,6 +499,67 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
         </DialogContent>
       </Dialog>
 
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>填写社保申请</DialogTitle>
+            <DialogDescription>管理员代员工填写；提交后进入待审核，员工也能在小程序里看到进度。</DialogDescription>
+          </DialogHeader>
+          <div className="mb-3 grid gap-2 sm:grid-cols-2">
+            {([
+              ['waiver', '自愿放弃'],
+              ['no_purchase', '要求不购买'],
+            ] as Array<[SocialSecurityDocumentType, string]>).map(([type, label]) => (
+              <Button
+                key={type}
+                type="button"
+                variant={createData.documentType === type ? 'default' : 'outline'}
+                className={createData.documentType === type ? 'bg-slate-950 hover:bg-slate-800' : ''}
+                onClick={() => switchCreateType(type)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="姓名" required value={createData.name} onChange={(value) => updateCreateField('name', value)} />
+            <Field label="身份证" required value={createData.idCard} onChange={(value) => updateCreateField('idCard', value)} />
+            <Field label="手机号" value={createData.phone} onChange={(value) => updateCreateField('phone', value)} />
+            <Field label="部门" value={createData.department} onChange={(value) => updateCreateField('department', value)} />
+            <Field label="岗位" value={createData.position} onChange={(value) => updateCreateField('position', value)} />
+            <Field label="入职日期" type="date" value={createData.hireDate} onChange={(value) => updateCreateField('hireDate', value)} />
+            <Field label="申请日期" type="date" value={createData.applicationDate} onChange={(value) => updateCreateField('applicationDate', value)} />
+            <Field label="公司名称" value={createData.companyName} onChange={(value) => updateCreateField('companyName', value)} />
+            <Field label="社保局城市" value={createData.bureauCity} onChange={(value) => updateCreateField('bureauCity', value)} />
+            <Field
+              label={createData.documentType === 'purchase' ? '申请说明' : '鉴于原因'}
+              value={createData.reason}
+              onChange={(value) => updateCreateField('reason', value)}
+            />
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {socialSecurityWaiverReasons.map((reason) => (
+              <Button
+                key={reason}
+                type="button"
+                variant={createData.reason === reason ? 'default' : 'outline'}
+                className={createData.reason === reason ? 'h-auto min-h-10 justify-start whitespace-normal bg-slate-950 text-left hover:bg-slate-800' : 'h-auto min-h-10 justify-start whitespace-normal text-left'}
+                onClick={() => updateCreateField('reason', reason)}
+              >
+                {reason}
+              </Button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createSaving}>取消</Button>
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={submitCreate} disabled={createSaving}>
+              {createSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+              提交
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
@@ -437,7 +580,7 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
             <Field label="申请日期" type="date" value={editData.applicationDate} onChange={(value) => updateField('applicationDate', value)} />
             <Field label="公司名称" value={editData.companyName} onChange={(value) => updateField('companyName', value)} />
             <Field label="社保局城市" value={editData.bureauCity} onChange={(value) => updateField('bureauCity', value)} />
-            {(editData.documentType === 'waiver' || editData.documentType === 'combined') && (
+            {editData.documentType !== 'purchase' && (
               <div className="space-y-1.5 sm:col-span-2">
                 <label className="text-sm font-medium text-slate-700">鉴于原因</label>
                 <div className="grid gap-2 sm:grid-cols-2">

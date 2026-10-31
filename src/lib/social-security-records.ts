@@ -33,11 +33,13 @@ export interface SocialSecurityDbRow {
 
 export function socialSecurityDocumentTitle(type: SocialSecurityDocumentType) {
   if (type === 'combined') return '社保声明（两份文件）';
+  if (type === 'purchase') return '购买社保申请书';
   return type === 'waiver' ? '自愿放弃社保声明' : '要求不购买社保申请书';
 }
 
 export function normalizeSocialSecurityDocumentType(value: unknown): SocialSecurityDocumentType {
   if (value === 'combined') return 'combined';
+  if (value === 'purchase') return 'purchase';
   return value === 'waiver' ? 'waiver' : 'no_purchase';
 }
 

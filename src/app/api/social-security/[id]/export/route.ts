@@ -33,6 +33,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     }
 
     const record = parseSocialSecurityRow(row);
+    if (record.documentType === 'purchase') {
+      return NextResponse.json({ success: false, error: '购买社保申请无需导出声明文档，请到「购买社保」记录里办理' }, { status: 400 });
+    }
     if (record.status === '待审核') {
       return NextResponse.json({ success: false, error: '请先审核社保申请，再导出或打印' }, { status: 400 });
     }

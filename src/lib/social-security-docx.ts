@@ -306,6 +306,10 @@ function mergeCombinedDocuments(
 }
 
 export function buildSocialSecurityDocx(record: SocialSecurityRecord): Buffer {
+  if (record.documentType === 'purchase') {
+    // 购买社保申请只是登记申请，没有对应的声明模板
+    throw new Error('购买社保申请无需导出声明文档');
+  }
   if (record.documentType === 'combined') {
     const entries = readZip(fs.readFileSync(TEMPLATE_BY_TYPE.no_purchase));
     const waiverEntries = readZip(fs.readFileSync(TEMPLATE_BY_TYPE.waiver));

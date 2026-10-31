@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { verifyToken } from '@/lib/auth';
+import { getEmployeeByRequest } from '@/lib/employee-session';
 import {
   normalizeSocialSecurityData,
   parseSocialSecurityRow,
@@ -17,7 +18,25 @@ export async function GET(request: NextRequest) {
   try {
     const user = await requireUser(request);
     if (!user) {
-      return NextResponse.json({ success: false, error: '未登录' }, { status: 401 });
+      // 员工端：只认登录会话（Token / Cookie），只返回本人记录
+      const session = getEmployeeByRequest(request);
+      if (!session) {
+        return NextResponse.json({ success: false, error: '登录已失效，请重新登录' }, { status: 401 });
+      }
+      const employee = db.prepare('SELECT name, id_card FROM employees WHERE id = ?')
+        .get(session.id) as { name: string; id_card: string | null } | undefined;
+      if (!employee) {
+        return NextResponse.json({ success: false, error: '员工不存在' }, { status: 404 });
+      }
+      const ownRows = db.prepare(`
+        SELECT * FROM social_security_records
+        WHERE deleted_at IS NULL
+          AND name = ?
+          AND (id_card = ? OR COALESCE(id_card, '') = '')
+        ORDER BY created_at DESC, id DESC
+      `).all(employee.name, employee.id_card || '') as SocialSecurityDbRow[];
+      const ownRecords = ownRows.map(parseSocialSecurityRow);
+      return NextResponse.json({ success: true, records: ownRecords, data: ownRecords, selfOnly: true });
     }
 
     const { searchParams } = new URL(request.url);
@@ -69,25 +88,47 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const data = normalizeSocialSecurityData(body?.data || body);
 
-    if (!data.name) {
-      return NextResponse.json({ success: false, error: '姓名不能为空' }, { status: 400 });
-    }
-    if (!data.idCard) {
-      return NextResponse.json({ success: false, error: '身份证号码不能为空' }, { status: 400 });
+    const adminUser = await requireUser(request);
+    const session = adminUser ? null : getEmployeeByRequest(request);
+    if (!adminUser && !session) {
+      return NextResponse.json({ success: false, error: '登录已失效，请重新登录' }, { status: 401 });
     }
 
-    const employee = db.prepare('SELECT id, status FROM employees WHERE name = ? AND id_card = ?').get(data.name, data.idCard) as { id: number; status: string } | undefined;
+    interface EmployeeLite { id: number; name: string; id_card: string | null; status: string }
+    let employee: EmployeeLite | undefined;
+    if (adminUser) {
+      if (!data.name) {
+        return NextResponse.json({ success: false, error: '姓名不能为空' }, { status: 400 });
+      }
+      if (!data.idCard) {
+        return NextResponse.json({ success: false, error: '身份证号码不能为空' }, { status: 400 });
+      }
+      employee = db.prepare('SELECT id, name, id_card, status FROM employees WHERE name = ? AND id_card = ?')
+        .get(data.name, data.idCard) as EmployeeLite | undefined;
+    } else {
+      employee = db.prepare('SELECT id, name, id_card, status FROM employees WHERE id = ?')
+        .get((session as { id: number }).id) as EmployeeLite | undefined;
+    }
+
     if (!employee || employee.status === '离职') {
       return NextResponse.json({ success: false, error: '员工身份验证失败' }, { status: 403 });
     }
-    const onboarding = db.prepare(`
-      SELECT id FROM onboarding_records
-      WHERE (employee_id = ? OR (name = ? AND id_card = ?))
-        AND status IN ('待审核', '已审核')
-      ORDER BY id DESC LIMIT 1
-    `).get(employee.id, data.name, data.idCard) as { id: number } | undefined;
-    if (!onboarding) {
-      return NextResponse.json({ success: false, error: '请先完成入职登记后再填写社保申请' }, { status: 403 });
+
+    // 员工自填时姓名/身份证以服务端为准，避免被篡改
+    data.name = employee.name;
+    data.idCard = employee.id_card || '';
+
+    // 员工自填要求已完成入职登记；管理员代录不强制
+    if (!adminUser) {
+      const onboarding = db.prepare(`
+        SELECT id FROM onboarding_records
+        WHERE (employee_id = ? OR (name = ? AND id_card = ?))
+          AND status IN ('待审核', '已审核')
+        ORDER BY id DESC LIMIT 1
+      `).get(employee.id, data.name, data.idCard) as { id: number } | undefined;
+      if (!onboarding) {
+        return NextResponse.json({ success: false, error: '请先完成入职登记后再填写社保申请' }, { status: 403 });
+      }
     }
 
     const result = db.prepare(`

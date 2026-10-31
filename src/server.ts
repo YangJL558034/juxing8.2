@@ -1,7 +1,9 @@
+import 'dotenv/config';
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { setupChatSocket } from './lib/chat-socket';
+import { startContractReminderScheduler } from './lib/contract-reminder';
 
 const dev =
   process.argv.includes('--dev') ||
@@ -29,6 +31,7 @@ app.prepare().then(() => {
   });
 
   setupChatSocket(server);
+  startContractReminderScheduler();
 
   server.once('error', err => {
     console.error(err);

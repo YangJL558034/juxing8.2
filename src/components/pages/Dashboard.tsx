@@ -146,9 +146,10 @@ export function Dashboard({ fullAccess = true }: { fullAccess?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchStats = async () => {
+  // silent=true 表示后台静默刷新：只换数据，不出现骨架屏、不打断滚动
+  const fetchStats = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setIsRefreshing(true);
       const res = await fetch('/api/stats');
       const data = await res.json();
@@ -158,16 +159,16 @@ export function Dashboard({ fullAccess = true }: { fullAccess?: boolean }) {
     } catch (error) {
       console.error('获取统计数据失败:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
       setIsRefreshing(false);
     }
   };
 
-  // 自动刷新 - 每30秒更新一次数据
+  // 自动刷新 - 每 30 秒静默更新数据（页面不闪、不跳回顶部）
   const { refreshNow } = useAutoRefresh({
     enabled: true,
     interval: 30000,
-    onRefresh: fetchStats,
+    onRefresh: () => fetchStats(true),
   });
 
   // 初始加载

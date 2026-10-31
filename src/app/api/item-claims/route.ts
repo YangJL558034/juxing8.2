@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/lib/database';
 import { hasPermission } from '@/lib/permission-check';
-import { getEmployeeSession } from '@/lib/employee-session';
+import { getEmployeeByRequest as getEmployeeSession } from '@/lib/employee-session';
 import type { User } from '@/lib/auth';
 import type { ItemClaimListResponse, ItemClaimRecord, ItemClaimStatus } from '@/types/item-management';
 

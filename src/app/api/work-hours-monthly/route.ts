@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, query } from '@/lib/database';
 import { verifyToken } from '@/lib/auth';
 import { hasPermission } from '@/lib/permission-check';
+import { getEmployeeByRequest as getEmployeeSession } from '@/lib/employee-session';
 import {
   parseLeaveRequestRow,
   type LeaveRequestDbRow,
@@ -141,14 +142,25 @@ function getApprovedLeaveRequests(year?: string | null, month?: string | null, e
 export async function GET(request: NextRequest) {
   try {
     const user = await requireUser(request);
-    if (!user) {
-      return NextResponse.json({ success: false, error: '未登录' }, { status: 401 });
-    }
 
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month');
     const year = searchParams.get('year');
     const employeeId = searchParams.get('employeeId');
+
+    // 小程序员工端：没有管理员 JWT 时，用 employee_session 认证并只返回本人工资
+    if (!user) {
+      const session = getEmployeeSession(request);
+      if (!session) {
+        return NextResponse.json({ success: false, error: '未登录' }, { status: 401 });
+      }
+      const employee = db.prepare('SELECT id, name, id_card, department, location FROM employees WHERE id = ?')
+        .get(session.id) as EmployeeContext | undefined;
+      const records = employee ? getEmployeeMonthlyRecords(employee, year, month) : [];
+      const leaveRecords = employee ? getApprovedLeaveRequests(year, month, employee) : [];
+      return NextResponse.json({ success: true, data: records, leaveRecords, selfOnly: true });
+    }
+
     const canManageSalary = hasPermission(user, 'salary');
 
     if (!canManageSalary) {

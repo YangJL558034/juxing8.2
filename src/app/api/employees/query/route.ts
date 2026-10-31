@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, db } from '@/lib/database';
-import { setEmployeeSession, employeeNoticeAccess } from '@/lib/employee-session';
+import { setEmployeeSession, getEmployeeByRequest, employeeNoticeAccess } from '@/lib/employee-session';
+
+// 身份证脱敏：只保留前 6 位和后 4 位
+function maskIdCard(value: string | null | undefined) {
+  const text = String(value || '').trim();
+  if (text.length < 10) return text ? '****' : '';
+  return `${text.slice(0, 6)}********${text.slice(-4)}`;
+}
 import {
   isDateInLeaveRange,
   parseLeaveRequestRow,
@@ -42,6 +49,7 @@ interface EmployeeServiceSummary {
     status: string;
     createdAt: string;
     confidentialityConfirmed: boolean;
+    [key: string]: unknown;
   } | null;
   socialSecurity: Array<{
     id: number;
@@ -63,9 +71,27 @@ interface EmployeeServiceSummary {
     senderName: string | null;
     createdAt: string;
   }>;
-  resignationRecords: Array<{ id: number; status: string; createdAt: string }>;
-  regularizationRecords: Array<{ id: number; status: string; createdAt: string }>;
-  workCertificateRecords: Array<{ id: number; status: string; createdAt: string }>;
+  resignationRecords: Array<{ id: number; status: string; createdAt: string; [key: string]: unknown }>;
+  regularizationRecords: Array<{ id: number; status: string; createdAt: string; [key: string]: unknown }>;
+  workCertificateRecords: Array<{ id: number; status: string; createdAt: string; [key: string]: unknown }>;
+}
+
+// 从 data_json 里取少量文本字段（原因/总结等），签名图片等大字段不返回
+function pickJsonText(raw: string | null, keys: string[], max = 500): string {
+  if (!raw) return '';
+  try {
+    const obj = JSON.parse(raw) as Record<string, unknown>;
+    for (const key of keys) {
+      const value = obj[key];
+      if (typeof value === 'string' && value.trim()) {
+        const text = value.trim();
+        return text.length > max ? `${text.slice(0, max)}…` : text;
+      }
+    }
+  } catch {
+    // 忽略解析失败
+  }
+  return '';
 }
 
 function buildMissingPunchReminders(
@@ -132,30 +158,17 @@ function buildMissingPunchReminders(
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const name = searchParams.get('name');
-    const idCard = searchParams.get('idCard');
 
-    const normalizedName = name?.trim() || '';
-    const normalizedIdCard = idCard?.trim() || '';
-
-    if (!normalizedName) {
-      return NextResponse.json({ success: false, error: '请输入姓名' }, { status: 400 });
-    }
-
-    if (!normalizedIdCard) {
-      return NextResponse.json({ success: false, error: '请输入身份证号' }, { status: 400 });
-    }
-
-    // 兼容系统上线前的历史证件号，同时拒绝明显异常的超长/特殊字符输入。
-    if (normalizedName.length > 40 || normalizedIdCard.length > 64 || !/^[A-Z0-9-]{4,64}$/i.test(normalizedIdCard)) {
-      return NextResponse.json({ success: false, error: '姓名或身份证号格式不正确' }, { status: 400 });
-    }
-
-    // lite=true 表示只做登录验证，不返回工资/考勤等大对象（给小程序用，大幅减小响应体积）
+    // lite=true 表示只返回基础信息（登录后首屏用，减小响应体积）
     const lite = searchParams.get('lite') === 'true';
 
-    // 必须通过姓名+身份证精确匹配
-    const employee = query.getEmployeeByNameAndIdCard.get(normalizedName, normalizedIdCard) as {
+    // 身份只认登录会话（X-Employee-Token / employee_session），不再接受 URL 里的姓名+身份证
+    const session = getEmployeeByRequest(request);
+    if (!session) {
+      return NextResponse.json({ success: false, error: '登录已失效，请重新登录' }, { status: 401 });
+    }
+
+    const employee = db.prepare('SELECT * FROM employees WHERE id = ?').get(session.id) as {
       id: number;
       name: string;
       id_card: string;
@@ -190,10 +203,36 @@ export async function GET(request: NextRequest) {
       const managerAssignment = db.prepare('SELECT location FROM employee_self_service_managers WHERE employee_id = ?').get(employee.id) as { location: string } | undefined;
       // 过滤掉 avatar_url（base64 大图片，100KB+），小程序不需要
       const { avatar_url, ...employeeLite } = employee as typeof employee & { avatar_url?: string };
+      // 工资记录：保留最近 24 个月的月度汇总，但剔除体积较大的 details（逐日打卡明细）
+      // 小程序工资页依赖 salaryRecords 渲染，返回空数组会导致工资页取不到数据
+      const salaryRecords = (db.prepare(`
+        SELECT w.*
+        FROM work_hours_monthly w
+        WHERE w.year BETWEEN 2000 AND 2100
+          AND w.month_num BETWEEN 1 AND 12
+          AND (
+            w.employee_id = ?
+            OR (
+              w.employee_name = ?
+              AND NOT EXISTS (
+                SELECT 1 FROM employees linked_employee WHERE linked_employee.id = w.employee_id
+              )
+            )
+          )
+        ORDER BY w.year DESC, w.month_num DESC, w.id DESC
+        LIMIT 24
+      `).all(employee.id, employee.name) as MonthlyRecordRow[]).map((record) => {
+        const summary: Record<string, unknown> = { ...record };
+        delete summary.details;
+        // signature 是 base64 签名图片（单条可达数百 KB），小程序只判断"是否已签"，
+        // 故降级为布尔值，避免 lite 响应体积爆炸
+        summary.signature = Boolean(record.signature);
+        return summary;
+      });
       const response = NextResponse.json({
         success: true,
-        employee: { ...employeeLite, isSelfServiceManager: Boolean(managerAssignment), selfServiceManagerLocation: managerAssignment?.location },
-        salaryRecords: [],
+        employee: { ...employeeLite, id_card: maskIdCard(employee.id_card), wxBound: Boolean((employee as { wx_openid?: string | null }).wx_openid), isSelfServiceManager: Boolean(managerAssignment), selfServiceManagerLocation: managerAssignment?.location },
+        salaryRecords,
         attendanceRecords: [],
         leaveRecords: [],
         missingPunchRecords: [],
@@ -333,9 +372,40 @@ export async function GET(request: NextRequest) {
       created_at: string;
     }>;
 
- const resignationRows = db.prepare(`SELECT id, status, created_at FROM resignation_records WHERE deleted_at IS NULL AND (employee_id = ? OR (name = ? AND id_card = ?)) ORDER BY id DESC`).all(employee.id, employee.name, employee.id_card) as Array<{ id: number; status: string; created_at: string }>;
-    const regularizationRows = db.prepare(`SELECT id, status, created_at FROM regularization_records WHERE deleted_at IS NULL AND (employee_id = ? OR applicant_name = ?) ORDER BY id DESC`).all(employee.id, employee.name) as Array<{ id: number; status: string; created_at: string }>;
-    const workCertificateRows = db.prepare(`SELECT id, status, created_at FROM work_certificate_records WHERE deleted_at IS NULL AND (employee_id = ? OR (name = ? AND id_card = ?)) ORDER BY id DESC`).all(employee.id, employee.name, employee.id_card) as Array<{ id: number; status: string; created_at: string }>;
+    const resignationRows = db.prepare(`
+      SELECT id, status, name, department, position, hire_date, apply_date, resignation_date,
+             handover_date, resignation_type, reviewer_name, reviewed_at, created_at, data_json
+      FROM resignation_records
+      WHERE deleted_at IS NULL AND (employee_id = ? OR (name = ? AND id_card = ?))
+      ORDER BY id DESC
+    `).all(employee.id, employee.name, employee.id_card) as Array<{
+      id: number; status: string; name: string | null; department: string | null; position: string | null;
+      hire_date: string | null; apply_date: string | null; resignation_date: string | null;
+      handover_date: string | null; resignation_type: string | null; reviewer_name: string | null;
+      reviewed_at: string | null; created_at: string; data_json: string | null;
+    }>;
+    const regularizationRows = db.prepare(`
+      SELECT id, status, applicant_name, department, position, hire_date, regularization_date,
+             created_at, data_json
+      FROM regularization_records
+      WHERE deleted_at IS NULL AND (employee_id = ? OR applicant_name = ?)
+      ORDER BY id DESC
+    `).all(employee.id, employee.name) as Array<{
+      id: number; status: string; applicant_name: string | null; department: string | null;
+      position: string | null; hire_date: string | null; regularization_date: string | null;
+      created_at: string; data_json: string | null;
+    }>;
+    const workCertificateRows = db.prepare(`
+      SELECT id, status, name, department, position, hire_date, purpose, reviewer_name,
+             reviewed_at, created_at, data_json
+      FROM work_certificate_records
+      WHERE deleted_at IS NULL AND (employee_id = ? OR (name = ? AND id_card = ?))
+      ORDER BY id DESC
+    `).all(employee.id, employee.name, employee.id_card) as Array<{
+      id: number; status: string; name: string | null; department: string | null; position: string | null;
+      hire_date: string | null; purpose: string | null; reviewer_name: string | null;
+      reviewed_at: string | null; created_at: string; data_json: string | null;
+    }>;
     const notificationRows = db.prepare(`
       SELECT n.*, CASE WHEN EXISTS (SELECT 1 FROM employee_notification_reads r
         WHERE r.employee_id = @employeeId AND r.notification_id = n.id) THEN 1
@@ -361,6 +431,13 @@ export async function GET(request: NextRequest) {
         status: onboardingRow.status,
         createdAt: onboardingRow.created_at,
         confidentialityConfirmed,
+        name: pickJsonText(onboardingRow.data_json, ['name']),
+        gender: pickJsonText(onboardingRow.data_json, ['gender']),
+        phone: pickJsonText(onboardingRow.data_json, ['phone']),
+        department: pickJsonText(onboardingRow.data_json, ['department']),
+        position: pickJsonText(onboardingRow.data_json, ['position']),
+        hireDate: pickJsonText(onboardingRow.data_json, ['hireDate']),
+        recruitmentSource: pickJsonText(onboardingRow.data_json, ['recruitmentSource']),
       } : null,
       socialSecurity: socialSecurityRows.map((row) => ({
         id: row.id,
@@ -375,9 +452,42 @@ export async function GET(request: NextRequest) {
         insuranceStatus: row.insurance_status,
         createdAt: row.created_at,
       })),
-      resignationRecords: resignationRows.map((row) => ({ id: row.id, status: row.status, createdAt: row.created_at })),
-      regularizationRecords: regularizationRows.map((row) => ({ id: row.id, status: row.status, createdAt: row.created_at })),
-      workCertificateRecords: workCertificateRows.map((row) => ({ id: row.id, status: row.status, createdAt: row.created_at })),
+      resignationRecords: resignationRows.map((row) => ({
+        id: row.id,
+        status: row.status,
+        createdAt: row.created_at,
+        department: row.department || '',
+        position: row.position || '',
+        hireDate: row.hire_date || '',
+        applyDate: row.apply_date || '',
+        resignationDate: row.resignation_date || '',
+        handoverDate: row.handover_date || '',
+        resignationType: row.resignation_type || '',
+        reason: pickJsonText(row.data_json, ['resignationReason', 'reason']),
+        reviewerName: row.reviewer_name || '',
+        reviewedAt: row.reviewed_at || '',
+      })),
+      regularizationRecords: regularizationRows.map((row) => ({
+        id: row.id,
+        status: row.status,
+        createdAt: row.created_at,
+        department: row.department || '',
+        position: row.position || '',
+        hireDate: row.hire_date || '',
+        regularizationDate: row.regularization_date || '',
+        workSummary: pickJsonText(row.data_json, ['workSummary', 'summary']),
+      })),
+      workCertificateRecords: workCertificateRows.map((row) => ({
+        id: row.id,
+        status: row.status,
+        createdAt: row.created_at,
+        department: row.department || '',
+        position: row.position || '',
+        hireDate: row.hire_date || '',
+        purpose: row.purpose || '',
+        reviewerName: row.reviewer_name || '',
+        reviewedAt: row.reviewed_at || '',
+      })),
       notifications: notificationRows.map((row) => ({
         id: row.id,
         title: row.title,
@@ -399,7 +509,7 @@ export async function GET(request: NextRequest) {
     const managerAssignment = db.prepare('SELECT location FROM employee_self_service_managers WHERE employee_id = ?').get(employee.id) as { location: string } | undefined;
     const response = NextResponse.json({
       success: true, 
-      employee: { ...employee, isSelfServiceManager: Boolean(managerAssignment), selfServiceManagerLocation: managerAssignment?.location },
+      employee: { ...employee, id_card: maskIdCard(employee.id_card), wxBound: Boolean((employee as { wx_openid?: string | null }).wx_openid), isSelfServiceManager: Boolean(managerAssignment), selfServiceManagerLocation: managerAssignment?.location },
       workRecords: [],
       salaryRecords: salaryRecordsWithDept,
       monthlyRecords: salaryRecordsWithDept,

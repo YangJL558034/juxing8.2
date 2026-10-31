@@ -26,7 +26,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Search, FileText, User, Monitor, Globe, Calendar, ChevronDown, RefreshCw } from 'lucide-react';
+import { Search, FileText, User, Monitor, Smartphone, Globe, Calendar, ChevronDown, RefreshCw } from 'lucide-react';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { formatChinaDateTime, parseChinaTime } from '@/lib/china-time';
 
@@ -57,6 +57,16 @@ const moduleLabels: Record<string, string> = {
   user: '用户管理',
   auth: '认证登录',
   system: '系统设置',
+  // ===== 小程序端 =====
+  personnel: '人事管理',
+  'account-cancels': '账号注销申请',
+  leave: '请假申请',
+  resignation: '离职申请',
+  regularization: '转正申请',
+  certificate: '在职证明',
+  item_claim: '物品领用',
+  attendance: '考勤打卡',
+  mini_program: '小程序',
 };
 
 const actionColors: Record<string, string> = {
@@ -327,12 +337,21 @@ export default function OperationLogsPage() {
                                   </TableCell>
                                   <TableCell>
                                     <div className="flex items-center gap-2">
-                                      <Monitor className="h-4 w-4 text-muted-foreground shrink-0" />
-                                      <span className="text-sm truncate max-w-[160px]" title={log.user_agent || ''}>
-                                        {log.user_agent
-                                          ? log.user_agent.split(')').pop()?.trim().split(' ')[0] || log.user_agent.substring(0, 30)
-                                          : '-'}
-                                      </span>
+                                      {log.user_agent === '小程序' ? (
+                                        <>
+                                          <Smartphone className="h-4 w-4 text-emerald-600 shrink-0" />
+                                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">小程序</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Monitor className="h-4 w-4 text-muted-foreground shrink-0" />
+                                          <span className="text-sm truncate max-w-[160px]" title={log.user_agent || ''}>
+                                            {log.user_agent
+                                              ? log.user_agent.split(')').pop()?.trim().split(' ')[0] || log.user_agent.substring(0, 30)
+                                              : '网页'}
+                                          </span>
+                                        </>
+                                      )}
                                     </div>
                                   </TableCell>
                                 </TableRow>

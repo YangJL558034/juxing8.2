@@ -1,26 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, query } from '@/lib/database';
+import { db } from '@/lib/database';
+import { getEmployeeByRequest } from '@/lib/employee-session';
 
 interface SalarySignPayload {
   recordId?: unknown;
   signature?: unknown;
-  employeeName?: unknown;
-  idCard?: unknown;
 }
 
 export async function POST(request: NextRequest) {
   try {
+    // 身份只认登录会话，签名接口不再接受姓名+身份证
+    const session = getEmployeeByRequest(request);
+    if (!session) {
+      return NextResponse.json({ success: false, error: '登录已失效，请重新登录' }, { status: 401 });
+    }
+
     const body = await request.json() as SalarySignPayload;
     const recordId = Number(body.recordId);
     const signature = typeof body.signature === 'string' ? body.signature : '';
-    const employeeName = typeof body.employeeName === 'string' ? body.employeeName.trim() : '';
-    const idCard = typeof body.idCard === 'string' ? body.idCard.trim() : '';
 
-    if (!Number.isInteger(recordId) || recordId <= 0 || !signature.startsWith('data:image/') || !employeeName || !idCard) {
+    if (!Number.isInteger(recordId) || recordId <= 0 || !signature.startsWith('data:image/')) {
       return NextResponse.json({ success: false, error: '参数错误' }, { status: 400 });
     }
 
-    const employee = query.getEmployeeByNameAndIdCard.get(employeeName, idCard) as {
+    const employee = db.prepare('SELECT id, name, status FROM employees WHERE id = ?').get(session.id) as {
       id: number;
       name: string;
       status: string;
@@ -47,7 +50,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '无权确认该工资记录' }, { status: 403 });
     }
 
-    const result = query.updateWorkHoursMonthlySignature.run(signature, recordId);
+    const result = db.prepare(`
+      UPDATE work_hours_monthly
+      SET signature = ?, signature_time = datetime('now', '+8 hours')
+      WHERE id = ?
+    `).run(signature, recordId);
     
     if (result.changes === 0) {
       return NextResponse.json({ success: false, error: '未找到对应的工资记录' }, { status: 404 });

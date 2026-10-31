@@ -140,10 +140,21 @@ export async function GET(request: NextRequest) {
   }
 }
 
+import { getEmployeeByRequest } from '@/lib/employee-session';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const data = normalizeLeaveRequestData(body?.data || body);
+    // Token 登录：身份证以服务端会话为准，客户端传的空值会被这里补上
+    const empSession = getEmployeeByRequest(request);
+    if (empSession) {
+      const me = db.prepare('SELECT name, id_card FROM employees WHERE id = ?').get(empSession.id) as { name: string; id_card: string | null } | undefined;
+      if (me) {
+        data.employeeName = me.name;
+        data.idCard = me.id_card || data.idCard;
+      }
+    }
 
     if (!data.employeeName) {
       return NextResponse.json({ success: false, error: '请填写员工姓名' }, { status: 400 });

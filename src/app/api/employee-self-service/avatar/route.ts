@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
-import { getEmployeeSession } from '@/lib/employee-session';
+import { getEmployeeByRequest as getEmployeeSession } from '@/lib/employee-session';
 
 export async function POST(request: NextRequest) {
   try {

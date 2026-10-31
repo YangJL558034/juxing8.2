@@ -56,6 +56,7 @@ import type { LaborContractTerminationFormData, LaborContractTerminationRecord }
 import ResignationAdminSection from './ResignationAdminSection';
 import ResignationCertificateAdminSection from './ResignationCertificateAdminSection';
 import SocialSecurityAdminSection from './SocialSecurityAdminSection';
+import LaborContractSection from './LaborContractSection';
 import LeaveRequestAdminSection from './LeaveRequestAdminSection';
 import YearMonthGroupedTableBody from './YearMonthGroupedTableBody';
 
@@ -265,6 +266,7 @@ export type PersonnelSectionKey =
   | 'resignation'
   | 'resignation-certificate'
   | 'labor-termination'
+  | 'labor-contract'
   | 'leave-request';
 
 const personnelSectionLabels: Record<PersonnelSectionKey, string> = {
@@ -276,6 +278,7 @@ const personnelSectionLabels: Record<PersonnelSectionKey, string> = {
   resignation: '离职申请',
   'resignation-certificate': '离职证明',
   'labor-termination': '解除劳动合同',
+  'labor-contract': '劳动合同',
   'leave-request': '请假申请',
 };
 
@@ -318,6 +321,15 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
   const [laborTerminationLoading, setLaborTerminationLoading] = useState(false);
   const [laborTerminationError, setLaborTerminationError] = useState('');
   const [laborTerminationListMode, setLaborTerminationListMode] = useState<'active' | 'deleted'>('active');
+  const [laborTerminationCategory, setLaborTerminationCategory] = useState<'all' | 'management' | 'production'>('all');
+  const [laborTerminationApplicants, setLaborTerminationApplicants] = useState<Array<{
+    id: number;
+    employeeName: string;
+    department: string;
+    category: string;
+    resignationDate: string;
+    reviewedAt: string;
+  }>>([]);
   const [laborTerminationFormOpen, setLaborTerminationFormOpen] = useState(false);
   const [laborTerminationFormMode, setLaborTerminationFormMode] = useState<'create' | 'edit'>('create');
   const [laborTerminationFormTarget, setLaborTerminationFormTarget] = useState<LaborContractTerminationRecord | null>(null);
@@ -450,6 +462,7 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
         throw new Error(result.error || '获取解除劳动合同通知书失败');
       }
       setLaborTerminationRecords(result.records || []);
+      setLaborTerminationApplicants((result as unknown as { resignationApplicants?: typeof laborTerminationApplicants }).resignationApplicants || []);
     } catch (fetchError) {
       setLaborTerminationError(fetchError instanceof Error ? fetchError.message : '获取解除劳动合同通知书失败');
       setLaborTerminationRecords([]);
@@ -1519,6 +1532,8 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
 
       {section === 'social-security-purchase' && <SocialSecurityAdminSection mode="purchase" />}
 
+      {section === 'labor-contract' && <LaborContractSection />}
+
       {section === 'regularization' && (
       <div id="personnel-regularization-section" className="scroll-mt-24 mt-4 rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1818,6 +1833,48 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
           </div>
         </div>
 
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {([
+            ['all', '全部'],
+            ['management', '管理部'],
+            ['production', '车间'],
+          ] as Array<['all' | 'management' | 'production', string]>).map(([key, label]) => (
+            <Button
+              key={key}
+              variant={laborTerminationCategory === key ? 'default' : 'outline'}
+              className={laborTerminationCategory === key ? 'bg-slate-950 hover:bg-slate-800' : ''}
+              onClick={() => setLaborTerminationCategory(key)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+
+        {laborTerminationApplicants
+          .filter((item) => laborTerminationCategory === 'all' || item.category === laborTerminationCategory)
+          .length > 0 && (
+          <div className="mt-4 rounded-lg border border-amber-100 bg-amber-50 p-3">
+            <div className="text-sm font-semibold text-amber-800">辞职已通过，待登记解除劳动合同</div>
+            <div className="mt-2 space-y-2">
+              {laborTerminationApplicants
+                .filter((item) => laborTerminationCategory === 'all' || item.category === laborTerminationCategory)
+                .map((item) => (
+                  <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white px-3 py-2 text-sm">
+                    <div className="text-slate-800">
+                      <span className="font-medium">{item.employeeName}</span>
+                      <span className="ml-2 text-slate-500">{item.department || '-'}</span>
+                      <span className="ml-2 text-xs text-slate-400">{item.category === 'production' ? '车间' : '管理部'}</span>
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      辞职日期 {item.resignationDate || '-'} · 审核 {item.reviewedAt || '-'}
+                    </div>
+                  </div>
+                ))}
+            </div>
+            <p className="mt-2 text-xs text-amber-700">以上员工辞职已审核通过且已签订劳动合同，可直接「新增通知书」登记解除。</p>
+          </div>
+        )}
+
         {laborTerminationError && (
           <div className="mt-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
             {laborTerminationError}
@@ -1839,7 +1896,9 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
               </TableRow>
             </TableHeader>
             <YearMonthGroupedTableBody
-              records={laborTerminationRecords}
+              records={laborTerminationCategory === 'all'
+                ? laborTerminationRecords
+                : laborTerminationRecords.filter((item) => (item as unknown as { category?: string }).category === laborTerminationCategory)}
               loading={laborTerminationLoading}
               colSpan={laborTerminationListMode === 'deleted' ? 8 : 7}
               loadingText="正在加载解除劳动合同通知书..."
