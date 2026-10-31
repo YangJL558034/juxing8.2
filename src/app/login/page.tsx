@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Eye, EyeOff, Loader2, LockKeyhole, UserRound } from 'lucide-react';
 
 function safeNextPath() {
@@ -29,6 +29,35 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
+  const [captchaId, setCaptchaId] = useState('');
+  const [captchaQuestion, setCaptchaQuestion] = useState('');
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [captchaLoading, setCaptchaLoading] = useState(false);
+
+  const loadCaptcha = useCallback(async () => {
+    setCaptchaLoading(true);
+    try {
+      const res = await fetch('/api/auth/captcha', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.success) {
+        setCaptchaId(data.id);
+        setCaptchaQuestion(data.question);
+      } else {
+        setCaptchaQuestion('获取失败，点击刷新');
+        setCaptchaId('');
+      }
+    } catch {
+      setCaptchaQuestion('获取失败，点击刷新');
+      setCaptchaId('');
+    } finally {
+      setCaptchaLoading(false);
+      setCaptchaAnswer('');
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCaptcha();
+  }, [loadCaptcha]);
 
   useEffect(() => {
     const rememberedUsername = window.localStorage.getItem('rememberedUsername');
@@ -49,7 +78,7 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, captchaId, captchaAnswer }),
         credentials: 'include',
       });
 
@@ -67,6 +96,7 @@ export default function LoginPage() {
         }, 850);
       } else {
         setError(data.error || '登录失败');
+        void loadCaptcha();
         setLoading(false);
       }
     } catch (loginError) {
@@ -150,6 +180,39 @@ export default function LoginPage() {
                   </button>
                 </span>
               </label>
+
+              {/* 验证码 */}
+              <div className="block">
+                <div className="flex items-center gap-3 md:gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void loadCaptcha()}
+                    title="点击刷新验证码"
+                    className="flex h-16 w-[9.5rem] shrink-0 items-center justify-center rounded-full border border-slate-200/90 bg-slate-50 text-[1.35rem] font-semibold tracking-widest text-slate-700 transition hover:bg-slate-100 md:h-14 md:w-[7.5rem] md:rounded-md md:text-base"
+                  >
+                    {captchaLoading ? '加载中' : (captchaQuestion || '点击获取')}
+                  </button>
+                  <span className="flex h-16 flex-1 items-center rounded-full border border-slate-200/90 bg-white/86 px-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition focus-within:border-blue-300 focus-within:bg-white md:h-14 md:rounded-md md:px-5 md:shadow-none">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={captchaAnswer}
+                      onChange={(event) => setCaptchaAnswer(event.target.value.trim())}
+                      placeholder="验证码"
+                      maxLength={4}
+                      className="min-w-0 flex-1 bg-transparent text-[1.55rem] text-slate-900 outline-none placeholder:text-slate-400 md:text-lg"
+                      required
+                    />
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void loadCaptcha()}
+                    className="shrink-0 whitespace-nowrap text-[1.15rem] text-blue-600 hover:underline md:text-sm"
+                  >
+                    换一张
+                  </button>
+                </div>
+              </div>
             </div>
 
             <button
