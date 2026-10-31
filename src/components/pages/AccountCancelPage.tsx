@@ -29,6 +29,9 @@ export default function AccountCancelPage() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'待处理' | '已处理' | '已驳回' | ''>('待处理');
   const [processing, setProcessing] = useState<number | null>(null);
+  // 用页面内确认框，替代可能被浏览器拦截的 window.confirm
+  const [pending, setPending] = useState<{ record: AccountRequest; action: 'approve' | 'reject' } | null>(null);
+  const [notice, setNotice] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,9 +53,15 @@ export default function AccountCancelPage() {
   useEffect(() => { void load(); }, [load]);
 
   const review = async (record: AccountRequest, action: 'approve' | 'reject') => {
-    const label = action === 'approve' ? '同意注销' : '驳回申请';
-    if (!window.confirm(`确定${label}「${record.employeeName}」的注销申请吗？`)) return;
+    setPending({ record, action });
+  };
+
+  const doReview = async () => {
+    if (!pending) return;
+    const { record, action } = pending;
+    setPending(null);
     setProcessing(record.id);
+    setNotice(null);
     try {
       const res = await fetch('/api/employee-self-service/account-cancel', {
         method: 'PATCH',
@@ -61,9 +70,13 @@ export default function AccountCancelPage() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || '处理失败');
+      setNotice({
+        type: 'ok',
+        text: `已${action === 'approve' ? '同意' : '驳回'}「${record.employeeName}」的注销申请`,
+      });
       await load();
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : '处理失败');
+      setNotice({ type: 'err', text: e instanceof Error ? e.message : '处理失败' });
     } finally {
       setProcessing(null);
     }
@@ -101,6 +114,21 @@ export default function AccountCancelPage() {
 
       {error && (
         <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+      )}
+
+      {notice && (
+        <div
+          className={`flex items-center justify-between rounded-md px-3 py-2 text-sm ${
+            notice.type === 'ok'
+              ? 'border border-emerald-100 bg-emerald-50 text-emerald-700'
+              : 'border border-red-100 bg-red-50 text-red-700'
+          }`}
+        >
+          <span>{notice.text}</span>
+          <button type="button" className="text-xs opacity-70 hover:opacity-100" onClick={() => setNotice(null)}>
+            关闭
+          </button>
+        </div>
       )}
 
       <div className="overflow-x-auto rounded-lg border border-slate-100 bg-white shadow-sm">
@@ -178,6 +206,38 @@ export default function AccountCancelPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* 处理确认弹窗 */}
+      {pending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
+            <div className="text-base font-semibold text-slate-900">
+              {pending.action === 'approve' ? '同意注销申请' : '驳回注销申请'}
+            </div>
+            <div className="mt-2 text-sm leading-relaxed text-slate-600">
+              确定{pending.action === 'approve' ? '同意' : '驳回'}「
+              <span className="font-medium text-slate-900">{pending.record.employeeName}</span>
+              」的账号注销申请吗？
+              {pending.action === 'approve' && (
+                <div className="mt-2 text-xs text-amber-600">
+                  同意后人事档案仍会保留，仅标记为已处理。
+                </div>
+              )}
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setPending(null)}>
+                取消
+              </Button>
+              <Button
+                className={pending.action === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}
+                onClick={() => void doReview()}
+              >
+                确定
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
