@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import HrContactEditor from '@/components/pages/HrContactEditor';
 import { formatChinaDateTime } from '@/lib/china-time';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -642,6 +643,9 @@ export default function UserManagePage() {
           />
         </div>
       </div>
+
+      {/* HR 联系方式（小程序展示） */}
+      <HrContactEditor compact />
 
       {/* 用户列表 */}
       <Card>
