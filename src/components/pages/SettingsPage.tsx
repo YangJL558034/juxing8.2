@@ -35,6 +35,7 @@ import {
   Download,
   UploadCloud,
   HardDrive,
+  Loader2,
 } from 'lucide-react';
 import { formatChinaDateTime } from '@/lib/china-time';
 
@@ -77,6 +78,9 @@ interface DatabaseBackupFile {
 
 export function SettingsPage() {
   const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null);
+  // HR 联系方式（小程序展示）
+  const [hrContacts, setHrContacts] = useState<Array<{ name: string; phone: string; label?: string }>>([]);
+  const [hrContactSaving, setHrContactSaving] = useState(false);
   const [backupConfig, setBackupConfig] = useState<DatabaseBackupConfig>({
     autoEnabled: false,
     intervalHours: 24,
@@ -134,6 +138,45 @@ export function SettingsPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testing, setTesting] = useState(false);
+
+  // 加载 HR 联系方式
+  useEffect(() => {
+    const loadHrContacts = async () => {
+      try {
+        const res = await fetch('/api/hr-contact-config', { cache: 'no-store' });
+        const data = await res.json();
+        if (data.success && Array.isArray(data.contacts)) {
+          setHrContacts(data.contacts);
+        }
+      } catch (error) {
+        console.error('Load HR contacts error:', error);
+      }
+    };
+    void loadHrContacts();
+  }, []);
+
+  const saveHrContacts = async () => {
+    setHrContactSaving(true);
+    try {
+      const res = await fetch('/api/hr-contact-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contacts: hrContacts }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setHrContacts(data.contacts || []);
+        alert('HR 联系方式已保存');
+      } else {
+        alert(data.error || '保存失败');
+      }
+    } catch (error) {
+      console.error('Save HR contacts error:', error);
+      alert('保存失败，请稍后重试');
+    } finally {
+      setHrContactSaving(false);
+    }
+  };
 
   // 加载服务器信息
   useEffect(() => {
@@ -473,6 +516,62 @@ export function SettingsPage() {
                 <Button onClick={() => handleSave('基本')}>
                   <Save className="w-4 h-4 mr-2" />
                   保存设置
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* HR 联系方式（小程序「我的 → HR 联系方式」展示） */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>HR 联系方式</CardTitle>
+              <CardDescription>
+                员工在小程序「我的 → HR 联系方式」看到的联系人，留空则自动取人事/行政岗位员工的手机号
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {hrContacts.map((item, index) => (
+                <div key={index} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_1.2fr_auto]">
+                  <Input
+                    placeholder="联系人姓名"
+                    value={item.name}
+                    onChange={(e) => setHrContacts(hrContacts.map((row, i) => i === index ? { ...row, name: e.target.value } : row))}
+                  />
+                  <Input
+                    placeholder="部门/说明，如 人事部"
+                    value={item.label || ''}
+                    onChange={(e) => setHrContacts(hrContacts.map((row, i) => i === index ? { ...row, label: e.target.value } : row))}
+                  />
+                  <Input
+                    placeholder="手机号（11 位）"
+                    value={item.phone}
+                    onChange={(e) => setHrContacts(hrContacts.map((row, i) => i === index ? { ...row, phone: e.target.value } : row))}
+                  />
+                  <Button
+                    variant="outline"
+                    className="border-red-200 text-red-600 hover:bg-red-50"
+                    onClick={() => setHrContacts(hrContacts.filter((_, i) => i !== index))}
+                  >
+                    删除
+                  </Button>
+                </div>
+              ))}
+              {hrContacts.length === 0 && (
+                <div className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                  还没有配置，员工端会自动显示人事/行政岗位员工的手机号
+                </div>
+              )}
+              <div className="flex justify-between gap-2">
+                <Button
+                  variant="outline"
+                  disabled={hrContacts.length >= 10}
+                  onClick={() => setHrContacts([...hrContacts, { name: '', phone: '', label: '' }])}
+                >
+                  添加联系人
+                </Button>
+                <Button onClick={() => void saveHrContacts()} disabled={hrContactSaving}>
+                  {hrContactSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  保存 HR 联系方式
                 </Button>
               </div>
             </CardContent>

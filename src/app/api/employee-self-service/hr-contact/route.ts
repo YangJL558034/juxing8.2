@@ -1,23 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { getEmployeeByRequest } from '@/lib/employee-session';
-
-interface HrRow {
-  id: number;
-  name: string | null;
-  username: string;
-  role: string;
-  phone: string | null;
-  email: string | null;
-  department: string | null;
-  emp_phone: string | null;
-  emp_department: string | null;
-  emp_position: string | null;
-}
+import { readHrContacts } from '@/lib/hr-contact';
 
 /**
- * 员工端「HR 联系方式」：自动取管理员账号（含关联员工档案的手机号）
- * 员工需登录后访问。
+ * 员工端「HR 联系方式」
+ * 1) 优先用后台「系统设置 → HR 联系方式」里配置的联系人
+ * 2) 未配置时，回退到人事/行政岗位员工的手机号（不展示管理员账号）
  */
 export async function GET(request: NextRequest) {
   try {
@@ -26,48 +15,67 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: '登录已失效，请重新登录' }, { status: 401 });
     }
 
+    // 1) 后台配置的联系人
+    const configured = readHrContacts();
+    if (configured.length > 0) {
+      return NextResponse.json(
+        {
+          success: true,
+          source: 'config',
+          contacts: configured.map((item, index) => ({
+            id: index + 1,
+            name: item.name,
+            phone: item.phone,
+            email: '',
+            department: item.label || '',
+            position: '',
+            role: 'hr',
+          })),
+        },
+        { headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+
+    // 2) 回退：人事/行政岗位的员工（排除管理员账号）
     const rows = db.prepare(`
-      SELECT u.id, u.name, u.username, u.role, u.phone, u.department, u.email,
-             e.phone AS emp_phone, e.department AS emp_department, e.position AS emp_position
-      FROM users u
-      LEFT JOIN employees e
-        ON e.id = u.employee_id
-        OR (u.employee_id IS NULL AND e.name = u.name)
-      WHERE u.role IN ('admin', 'super_admin')
-        AND COALESCE(u.status, 'active') <> 'disabled'
-      ORDER BY CASE u.role WHEN 'super_admin' THEN 0 ELSE 1 END, u.id
-    `).all() as HrRow[];
+      SELECT e.id, e.name, e.phone, e.email, e.department, e.position
+      FROM employees e
+      WHERE COALESCE(e.status, '在职') <> '离职'
+        AND e.phone IS NOT NULL AND TRIM(e.phone) <> ''
+        AND (
+          e.position LIKE '%人事%' OR e.position LIKE '%行政%' OR e.position LIKE '%HR%'
+          OR e.department LIKE '%人事%' OR e.department LIKE '%行政%' OR e.department LIKE '%人力资源%'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM users u WHERE u.name = e.name AND u.role IN ('admin', 'super_admin')
+        )
+      ORDER BY e.id
+      LIMIT 10
+    `).all() as Array<{
+      id: number;
+      name: string;
+      phone: string;
+      email: string | null;
+      department: string | null;
+      position: string | null;
+    }>;
 
-    const seen = new Set<string>();
     const contacts = rows
-      .map((row) => {
-        const name = String(row.name || row.username || '').trim();
-        const phone = String(row.phone || row.emp_phone || '').trim();
-        return {
-          id: row.id,
-          name,
-          phone,
-          email: String(row.email || '').trim(),
-          department: String(row.emp_department || row.department || '').trim(),
-          position: String(row.emp_position || '').trim(),
-          role: row.role,
-        };
-      })
-      // 只要求有名字；没有手机号时用邮箱兜底（占位邮箱 example.com 不算）
-      .filter((item) => item.name && (
-        Boolean(item.phone) || (Boolean(item.email) && !/@example\.com$/i.test(item.email))
-      ))
-      .filter((item) => {
-        // 同名同号去重
-        const key = `${item.name}|${item.phone}|${item.email}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      // 有手机号的排在前面
-      .sort((a, b) => Number(Boolean(b.phone)) - Number(Boolean(a.phone)));
+      .map((row) => ({
+        id: row.id,
+        name: String(row.name || '').trim(),
+        phone: String(row.phone || '').trim(),
+        email: String(row.email || '').trim(),
+        department: String(row.department || '').trim(),
+        position: String(row.position || '').trim(),
+        role: 'hr',
+      }))
+      .filter((item) => item.name && item.phone);
 
-    return NextResponse.json({ success: true, contacts }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(
+      { success: true, source: 'employee', contacts },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (error) {
     console.error('Get HR contact error:', error);
     return NextResponse.json({ success: false, error: '获取 HR 联系方式失败' }, { status: 500 });
