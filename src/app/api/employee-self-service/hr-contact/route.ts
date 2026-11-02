@@ -8,6 +8,7 @@ interface HrRow {
   username: string;
   role: string;
   phone: string | null;
+  email: string | null;
   department: string | null;
   emp_phone: string | null;
   emp_department: string | null;
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
     }
 
     const rows = db.prepare(`
-      SELECT u.id, u.name, u.username, u.role, u.phone, u.department,
+      SELECT u.id, u.name, u.username, u.role, u.phone, u.department, u.email,
              e.phone AS emp_phone, e.department AS emp_department, e.position AS emp_position
       FROM users u
       LEFT JOIN employees e
@@ -46,19 +47,25 @@ export async function GET(request: NextRequest) {
           id: row.id,
           name,
           phone,
+          email: String(row.email || '').trim(),
           department: String(row.emp_department || row.department || '').trim(),
           position: String(row.emp_position || '').trim(),
           role: row.role,
         };
       })
-      .filter((item) => item.name && item.phone)
+      // 只要求有名字；没有手机号时用邮箱兜底（占位邮箱 example.com 不算）
+      .filter((item) => item.name && (
+        Boolean(item.phone) || (Boolean(item.email) && !/@example\.com$/i.test(item.email))
+      ))
       .filter((item) => {
         // 同名同号去重
-        const key = `${item.name}|${item.phone}`;
+        const key = `${item.name}|${item.phone}|${item.email}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
-      });
+      })
+      // 有手机号的排在前面
+      .sort((a, b) => Number(Boolean(b.phone)) - Number(Boolean(a.phone)));
 
     return NextResponse.json({ success: true, contacts }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
