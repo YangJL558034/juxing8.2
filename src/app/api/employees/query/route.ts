@@ -74,6 +74,15 @@ interface EmployeeServiceSummary {
   resignationRecords: Array<{ id: number; status: string; createdAt: string; [key: string]: unknown }>;
   regularizationRecords: Array<{ id: number; status: string; createdAt: string; [key: string]: unknown }>;
   workCertificateRecords: Array<{ id: number; status: string; createdAt: string; [key: string]: unknown }>;
+  accountCancelRecords?: Array<{
+    id: number;
+    status: string;
+    rawStatus?: string;
+    reason?: string;
+    createdAt: string;
+    reviewedAt?: string;
+    reviewerName?: string;
+  }>;
 }
 
 // 从 data_json 里取少量文本字段（原因/总结等），签名图片等大字段不返回
@@ -498,6 +507,40 @@ export async function GET(request: NextRequest) {
         isRead: row.is_read === 1,
         createdAt: row.created_at,
       })),
+      // 账号注销申请：员工提交后能在「我的申请」看到审核进度
+      accountCancelRecords: (() => {
+        try {
+          const rows = db.prepare(`
+            SELECT id, status, reason, created_at, processed_at, processed_by
+            FROM employee_account_requests
+            WHERE employee_id = ?
+            ORDER BY id DESC
+          `).all(employee.id) as Array<{
+            id: number;
+            status: string;
+            reason: string | null;
+            created_at: string;
+            processed_at: string | null;
+            processed_by: string | null;
+          }>;
+          const statusMap: Record<string, string> = {
+            '待处理': '待审核',
+            '已处理': '已通过',
+            '已驳回': '已驳回',
+          };
+          return rows.map((row) => ({
+            id: row.id,
+            status: statusMap[row.status] || row.status,
+            rawStatus: row.status,
+            reason: row.reason || '',
+            createdAt: row.created_at,
+            reviewedAt: row.processed_at || '',
+            reviewerName: row.processed_by || '',
+          }));
+        } catch {
+          return [];
+        }
+      })(),
     };
 
     // 用员工表的部门信息覆盖工资记录的部门信息（工资表部门可能为空）
