@@ -296,6 +296,8 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
 
   return (
     <>
+    {/* 合并视图：购买社保放最上面，社保声明/申请放下面 */}
+    {mode === 'all' && <SocialSecurityPurchaseManager />}
     {mode !== 'purchase' && (
     <div id="social-security-management" className="scroll-mt-24 mt-4 rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -627,7 +629,7 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
       </Dialog>
     </div>
     )}
-    {mode !== 'applications' && <SocialSecurityPurchaseManager />}
+    {mode === 'purchase' && <SocialSecurityPurchaseManager />}
     </>
   );
 }
