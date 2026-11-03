@@ -305,6 +305,19 @@ function mergeCombinedDocuments(
   );
 }
 
+/** 一份「自愿放弃社保声明」+ 一份「要求不购买社保申请书」合并成一个 docx（两页） */
+export function buildSocialSecurityMergedDocx(
+  noPurchaseRecord: SocialSecurityRecord,
+  waiverRecord: SocialSecurityRecord,
+): Buffer {
+  const entries = readZip(fs.readFileSync(TEMPLATE_BY_TYPE.no_purchase));
+  const waiverEntries = readZip(fs.readFileSync(TEMPLATE_BY_TYPE.waiver));
+  const noPurchaseXml = fillNoPurchaseTemplate(readEntry(entries, 'word/document.xml'), noPurchaseRecord);
+  const waiverXml = fillWaiverTemplate(readEntry(waiverEntries, 'word/document.xml'), waiverRecord);
+  writeEntry(entries, 'word/document.xml', mergeCombinedDocuments(entries, waiverEntries, noPurchaseXml, waiverXml));
+  return createZip(entries.map((entry) => ({ path: entry.path, content: entry.content })));
+}
+
 export function buildSocialSecurityDocx(record: SocialSecurityRecord): Buffer {
   if (record.documentType === 'purchase') {
     // 购买社保申请只是登记申请，没有对应的声明模板
