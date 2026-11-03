@@ -269,8 +269,8 @@ export function computeProbation(employee: {
     regularDate: '',
     daysLeft,
     resigning: resigned,
-    // 只有试用期内的员工可以提交转正申请
-    canApplyRegularization: daysLeft < 0,
+    // 试用期内也允许提前提交转正申请
+    canApplyRegularization: true,
   };
 }
 
