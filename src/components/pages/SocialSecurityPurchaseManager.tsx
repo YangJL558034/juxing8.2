@@ -174,6 +174,8 @@ export default function SocialSecurityPurchaseManager() {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('management');
   const [importCategory, setImportCategory] = useState<SocialSecurityPurchaseCategory>('management');
   const [listMode, setListMode] = useState<ListMode>('active');
+  // 已购买 / 未购买 分开显示
+  const [purchaseView, setPurchaseView] = useState<'bought' | 'notBought'>('bought');
   const [viewOpen, setViewOpen] = useState(false);
   const [viewTarget, setViewTarget] = useState<SocialSecurityPurchaseRecord | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -446,6 +448,29 @@ export default function SocialSecurityPurchaseManager() {
         </div>
       )}
 
+      {/* 已购买 / 未购买 分开显示 */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={purchaseView === 'bought' ? 'default' : 'outline'}
+          className={purchaseView === 'bought' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+          onClick={() => setPurchaseView('bought')}
+        >
+          已购买社保 {visibleRecords.length}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={purchaseView === 'notBought' ? 'default' : 'outline'}
+          className={purchaseView === 'notBought' ? 'bg-amber-500 hover:bg-amber-600' : ''}
+          onClick={() => setPurchaseView('notBought')}
+        >
+          未购买社保 {agreementTotal}
+        </Button>
+      </div>
+
+      {purchaseView === 'bought' && (
       <div className="mt-4 overflow-x-auto">
         <Table>
           <TableHeader>
@@ -525,7 +550,9 @@ export default function SocialSecurityPurchaseManager() {
           </TableBody>
         </Table>
       </div>
+      )}
 
+      {purchaseView === 'notBought' && (
       <div className="mt-6 rounded-lg border border-slate-100 bg-slate-50/60 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -628,6 +655,7 @@ export default function SocialSecurityPurchaseManager() {
           </Table>
         </div>
       </div>
+      )}
 
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">

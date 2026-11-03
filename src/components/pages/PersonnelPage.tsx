@@ -318,11 +318,15 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
   const [manualRegularizingId, setManualRegularizingId] = useState<number | null>(null);
   const [regularizationLoading, setRegularizationLoading] = useState(false);
   const [regularizationError, setRegularizationError] = useState('');
-  const [regularizationListMode, setRegularizationListMode] = useState<'probation' | 'pending' | 'reviewed' | 'deleted'>('probation');
+  const [regularizationListMode, setRegularizationListMode] = useState<'probation' | 'pending' | 'reviewed' | 'rejected' | 'deleted'>('probation');
   const [regularizationReviewOpen, setRegularizationReviewOpen] = useState(false);
   const [regularizationReviewTarget, setRegularizationReviewTarget] = useState<RegularizationRecord | null>(null);
   const [regularizationReviewData, setRegularizationReviewData] = useState<RegularizationFormData | null>(null);
   const [regularizationRejectReason, setRegularizationRejectReason] = useState('');
+  // 驳回弹窗（独立）
+  const [regularizationRejectOpen, setRegularizationRejectOpen] = useState(false);
+  const [regularizationRejectTarget, setRegularizationRejectTarget] = useState<RegularizationRecord | null>(null);
+  const [regularizationRejecting, setRegularizationRejecting] = useState(false);
   const [regularizationReviewing, setRegularizationReviewing] = useState(false);
   const [regularizationViewOpen, setRegularizationViewOpen] = useState(false);
   const [regularizationViewTarget, setRegularizationViewTarget] = useState<RegularizationRecord | null>(null);
@@ -436,7 +440,8 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
       setRegularizationRecords(nextRecords.filter((record) => {
         if (regularizationListMode === 'deleted') return true;
         if (regularizationListMode === 'pending') return record.status === '待处理';
-        return record.status === '已审核' || record.status === '已驳回';
+        if (regularizationListMode === 'rejected') return record.status === '已驳回';
+        return record.status === '已审核';
       }));
     } catch (fetchError) {
       setRegularizationError(fetchError instanceof Error ? fetchError.message : '获取转正申请列表失败');
@@ -784,6 +789,44 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
     setRegularizationReviewData(JSON.parse(JSON.stringify(record.data)) as RegularizationFormData);
     setRegularizationRejectReason('');
     setRegularizationReviewOpen(true);
+  };
+
+  // 驳回（独立按钮 + 独立弹窗，只填原因）
+  const openRegularizationReject = (record: RegularizationRecord) => {
+    setRegularizationRejectTarget(record);
+    setRegularizationRejectReason('');
+    setRegularizationRejectOpen(true);
+  };
+
+  const submitRegularizationReject = async () => {
+    if (!regularizationRejectTarget) return;
+    if (!regularizationRejectReason.trim()) {
+      alert('请填写驳回原因');
+      return;
+    }
+    setRegularizationRejecting(true);
+    try {
+      const response = await fetch(`/api/regularization/${regularizationRejectTarget.id}/review`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          decision: 'reject',
+          rejectReason: regularizationRejectReason.trim(),
+          data: regularizationRejectTarget.data,
+        }),
+      });
+      const result = await response.json().catch(() => ({})) as RegularizationMutateResponse;
+      if (!response.ok || !result.success) throw new Error(result.error || '驳回失败');
+      setRegularizationRejectOpen(false);
+      setRegularizationRejectTarget(null);
+      setRegularizationRejectReason('');
+      await loadRegularizationRecords();
+      alert(result.message || '已驳回');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '驳回失败');
+    } finally {
+      setRegularizationRejecting(false);
+    }
   };
 
   const openRegularizationEdit = (record: RegularizationRecord) => {
@@ -1614,7 +1657,7 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
       </>
       )}
 
-      {section === 'social-security' && <SocialSecurityAdminSection mode="applications" />}
+      {section === 'social-security' && <SocialSecurityAdminSection mode="all" />}
 
       {section === 'social-security-purchase' && <SocialSecurityAdminSection mode="purchase" />}
 
@@ -1651,6 +1694,13 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
               onClick={() => setRegularizationListMode('reviewed')}
             >
               已审核
+            </Button>
+            <Button
+              variant={regularizationListMode === 'rejected' ? 'default' : 'outline'}
+              className={regularizationListMode === 'rejected' ? 'bg-red-600 hover:bg-red-700' : ''}
+              onClick={() => setRegularizationListMode('rejected')}
+            >
+              已驳回
             </Button>
             <Button
               variant={regularizationListMode === 'deleted' ? 'default' : 'outline'}
@@ -1800,11 +1850,26 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
                         <Download className="h-4 w-4" />
                         导出
                       </Button>
-                    ) : (
+                    ) : record.status === '已驳回' ? (
                       <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => openRegularizationReview(record)}>
                         <FileCheck2 className="h-4 w-4" />
-                        审核
+                        重新审核
                       </Button>
+                    ) : (
+                      <>
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => openRegularizationReview(record)}>
+                          <FileCheck2 className="h-4 w-4" />
+                          审核
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-red-200 text-red-600 hover:bg-red-50"
+                          onClick={() => openRegularizationReject(record)}
+                        >
+                          驳回
+                        </Button>
+                      </>
                     )}
                     <Button variant="outline" size="sm" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => deleteRegularizationRecord(record)}>
                       <Trash2 className="h-4 w-4" />
@@ -2744,36 +2809,52 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
             </div>
           )}
 
-          {/* 驳回原因（驳回时必填） */}
-          <div className="mt-3 space-y-1.5 rounded-md border border-red-100 bg-red-50/60 px-3 py-3">
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegularizationReviewOpen(false)} disabled={regularizationReviewing}>
+              取消
+            </Button>
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => void submitRegularizationReview('approve')} disabled={regularizationReviewing}>
+              {regularizationReviewing && <Loader2 className="h-4 w-4 animate-spin" />}
+              完成审核
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 驳回弹窗（独立按钮触发，只需填原因） */}
+      <Dialog open={regularizationRejectOpen} onOpenChange={setRegularizationRejectOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>驳回转正申请</DialogTitle>
+            <DialogDescription>
+              {regularizationRejectTarget
+                ? `${regularizationRejectTarget.applicantName} / ${regularizationRejectTarget.department || '-'} / 转正日期 ${regularizationRejectTarget.regularizationDate || '-'}`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">
-              驳回原因<span className="text-red-500">（点「驳回」时必填）</span>
+              驳回原因<span className="text-red-500">*</span>
             </label>
             <Textarea
               value={regularizationRejectReason}
               onChange={(event) => setRegularizationRejectReason(event.target.value)}
               placeholder="例如：试用期工作小结不完整，请补充后重新提交"
-              className="min-h-20 bg-white"
+              className="min-h-28"
             />
             <p className="text-xs text-slate-500">驳回后员工在小程序/移动端能看到这条原因，并可重新提交。</p>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRegularizationReviewOpen(false)} disabled={regularizationReviewing}>
+            <Button variant="outline" onClick={() => setRegularizationRejectOpen(false)} disabled={regularizationRejecting}>
               取消
             </Button>
             <Button
-              variant="outline"
-              className="border-red-200 text-red-600 hover:bg-red-50"
-              onClick={() => void submitRegularizationReview('reject')}
-              disabled={regularizationReviewing}
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => void submitRegularizationReject()}
+              disabled={regularizationRejecting}
             >
-              {regularizationReviewing && <Loader2 className="h-4 w-4 animate-spin" />}
-              驳回
-            </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => void submitRegularizationReview('approve')} disabled={regularizationReviewing}>
-              {regularizationReviewing && <Loader2 className="h-4 w-4 animate-spin" />}
-              完成审核
+              {regularizationRejecting && <Loader2 className="h-4 w-4 animate-spin" />}
+              确认驳回
             </Button>
           </DialogFooter>
         </DialogContent>
