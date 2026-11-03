@@ -528,8 +528,7 @@ export async function GET(request: NextRequest) {
       hire_date: string | null; purpose: string | null; reviewer_name: string | null;
       reviewed_at: string | null; created_at: string; data_json: string | null;
     }>;
-    const notificationRows = db.prepare(`
-      SELECT n.*, CASE WHEN EXISTS (SELECT 1 FROM employee_notification_reads r
+    const notificationRows = db.prepare(`      SELECT n.*, CASE WHEN EXISTS (SELECT 1 FROM employee_notification_reads r
         WHERE r.employee_id = @employeeId AND r.notification_id = n.id) THEN 1
         WHEN n.receiver_name NOT IN ('全体员工', '所有员工') THEN n.is_read ELSE 0 END AS is_read
       FROM notifications n
@@ -546,6 +545,62 @@ export async function GET(request: NextRequest) {
       is_read: number;
       created_at: string;
     }>;
+
+    // 审核结果自动通知：驳回记录长期保留，重新申请通过后也不覆盖
+    const autoNotifications: Array<{
+      id: number;
+      title: string;
+      content: string | null;
+      senderName: string | null;
+      attachmentFile: string | null;
+      attachmentFileName: string | null;
+      isRead: number;
+      createdAt: string;
+    }> = [];
+    const reviewLabel = (status: string) => {
+      if (status === '已驳回') return '被驳回';
+      if (['已审核', '已通过', '已导出'].includes(status)) return '已通过';
+      return '';
+    };
+    const pushAutoNotice = (
+      kind: string,
+      rows: Array<{ id: number; status: string; created_at: string; data_json?: string | null }>,
+    ) => {
+      for (const row of rows) {
+        const label = reviewLabel(row.status);
+        if (!label) continue;
+        const rejectReason = pickJsonText(row.data_json || null, ['rejectReason']);
+        autoNotifications.push({
+          id: -100000 - row.id,
+          title: `${kind}${label}`,
+          content: label === '被驳回'
+            ? (rejectReason ? `驳回原因：${rejectReason}` : '您的申请被驳回，请修改后重新提交')
+            : `您的${kind}已通过审核`,
+          senderName: pickJsonText(row.data_json || null, ['reviewerName']) || null,
+          attachmentFile: null,
+          attachmentFileName: null,
+          isRead: 0,
+          createdAt: row.created_at,
+        });
+      }
+    };
+    pushAutoNotice('转正申请', regularizationRows as Array<{ id: number; status: string; created_at: string; data_json?: string | null }>);
+    pushAutoNotice('离职申请', resignationRows as Array<{ id: number; status: string; created_at: string; data_json?: string | null }>);
+    pushAutoNotice('工作证明', workCertificateRows as Array<{ id: number; status: string; created_at: string; data_json?: string | null }>);
+
+    const allNotifications = [
+      ...autoNotifications,
+      ...notificationRows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        content: row.content,
+        senderName: row.sender_name,
+        attachmentFile: row.attachment_file,
+        attachmentFileName: row.attachment_file_name,
+        isRead: row.is_read,
+        createdAt: row.created_at,
+      })),
+    ].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 
     const serviceSummary: EmployeeServiceSummary = {
       onboarding: onboardingRow ? {
@@ -613,16 +668,7 @@ export async function GET(request: NextRequest) {
         reviewerName: row.reviewer_name || '',
         reviewedAt: row.reviewed_at || '',
       })),
-      notifications: notificationRows.map((row) => ({
-        id: row.id,
-        title: row.title,
-        content: row.content,
-        senderName: row.sender_name,
-        attachmentFile: row.attachment_file,
-        attachmentFileName: row.attachment_file_name,
-        isRead: row.is_read === 1,
-        createdAt: row.created_at,
-      })),
+      notifications: allNotifications,
       // 账号注销申请：员工提交后能在「我的申请」看到审核进度
       accountCancelRecords: (() => {
         try {
