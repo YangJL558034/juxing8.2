@@ -91,7 +91,29 @@ export async function GET(request: NextRequest) {
       ORDER BY created_at DESC, id DESC
     `).all(...params) as SocialSecurityDbRow[];
 
-    return NextResponse.json({ success: true, records: rows.map(parseSocialSecurityRow) });
+    // 老记录可能没存部门/岗位，用员工档案补齐（否则会被误判成"管理部"）
+    const resolveEmployee = db.prepare(`
+      SELECT department, position FROM employees
+      WHERE (id_card IS NOT NULL AND id_card <> '' AND id_card = ?)
+         OR name = ?
+      ORDER BY CASE WHEN id_card = ? THEN 0 ELSE 1 END
+      LIMIT 1
+    `);
+
+    const records = rows.map((row) => {
+      const record = parseSocialSecurityRow(row);
+      if (record.department || !record.name) return record;
+      const employee = resolveEmployee.get(row.id_card || '', record.name, row.id_card || '') as
+        | { department: string | null; position: string | null }
+        | undefined;
+      return {
+        ...record,
+        department: String(employee?.department || ''),
+        position: record.position || String(employee?.position || ''),
+      };
+    });
+
+    return NextResponse.json({ success: true, records });
   } catch (error) {
     console.error('Get social security records error:', error);
     return NextResponse.json({ success: false, error: '获取社保申请记录失败' }, { status: 500 });
