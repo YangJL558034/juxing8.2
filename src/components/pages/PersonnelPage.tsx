@@ -350,6 +350,8 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
   const [reviewTarget, setReviewTarget] = useState<OnboardingRecord | null>(null);
   const [reviewerName, setReviewerName] = useState('');
   const [hrOpinion, setHrOpinion] = useState('同意入职。');
+  // 是否需要试用期（不需要 = 直接正式工，员工端不能提交转正申请）
+  const [probationRequired, setProbationRequired] = useState(true);
   const [reviewing, setReviewing] = useState(false);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -558,6 +560,8 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
     setReviewTarget(record);
     setReviewerName(record.reviewerName || '');
     setHrOpinion(record.hrOpinion || '同意入职。');
+    // 默认需要试用期（车间以外），已存在员工档案时按库里的设置回填
+    setProbationRequired(true);
     setReviewOpen(true);
   };
 
@@ -600,6 +604,7 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
         body: JSON.stringify({
           reviewerName: reviewerName.trim(),
           hrOpinion: hrOpinion.trim() || '同意入职。',
+          probationRequired,
         }),
       });
       const result = await response.json().catch(() => ({})) as MutateResponse;
@@ -2660,6 +2665,36 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
                 placeholder="请输入人事部门意见"
                 className="min-h-28"
               />
+            </div>
+
+            {/* 是否需要试用期 */}
+            <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+              <div className="text-sm font-medium text-slate-700">试用期</div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={probationRequired ? 'default' : 'outline'}
+                  className={probationRequired ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                  onClick={() => setProbationRequired(true)}
+                >
+                  需要试用期（1 个月）
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={!probationRequired ? 'default' : 'outline'}
+                  className={!probationRequired ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                  onClick={() => setProbationRequired(false)}
+                >
+                  不需要（直接正式工）
+                </Button>
+              </div>
+              <p className="text-xs text-slate-500">
+                {probationRequired
+                  ? '员工入职后 1 个月内为试用期，期满后在「转正申请」提交转正。'
+                  : '设为正式工后，该员工在小程序/员工自助平台不能提交转正申请。'}
+              </p>
             </div>
           </div>
           <DialogFooter>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, db } from '@/lib/database';
 import { setEmployeeSession, getEmployeeByRequest, employeeNoticeAccess } from '@/lib/employee-session';
+import { getProbationRequired } from '@/lib/probation';
 
 // 身份证脱敏：只保留前 6 位和后 4 位
 function maskIdCard(value: string | null | undefined) {
@@ -209,6 +210,21 @@ export function computeProbation(employee: {
 
   const resigned = ['离职', '已离职'].includes(String(employee.status || ''));
 
+  // HR 审核入职时设为「不需要试用期」→ 直接正式工，不允许再提交转正申请
+  const probationRequired = employee.id ? getProbationRequired(employee.id) : true;
+  if (!probationRequired) {
+    return {
+      status: 'not_required' as const,
+      hireDate,
+      probationMonths: 0,
+      probationEnd: '',
+      regularDate: hireDate,
+      daysLeft: 0,
+      resigning: resigned,
+      canApplyRegularization: false,
+    };
+  }
+
   // 已审核的转正记录优先（有记录就是已转正）
   let regularDate = '';
   try {
@@ -238,6 +254,7 @@ export function computeProbation(employee: {
       regularDate,
       daysLeft: 0,
       resigning: resigned,
+      canApplyRegularization: false,
     };
   }
 
@@ -249,6 +266,8 @@ export function computeProbation(employee: {
     regularDate: '',
     daysLeft,
     resigning: resigned,
+    // 只有试用期内的员工可以提交转正申请
+    canApplyRegularization: daysLeft < 0,
   };
 }
 

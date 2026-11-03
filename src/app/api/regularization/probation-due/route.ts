@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { verifyToken } from '@/lib/auth';
+import { getProbationRequired } from '@/lib/probation';
 
 /** 试用期统一 1 个月；提前 20 天提醒 HR（仅办公室岗位） */
 const PROBATION_MONTHS = 1;
@@ -56,6 +57,8 @@ export async function GET(request: NextRequest) {
 
     const all = employees
       .filter((employee) => isOfficeEmployee(employee))
+      // HR 审核时设为「不需要试用期」的不提醒
+      .filter((employee) => getProbationRequired(employee.id))
       .map((employee) => {
         const hireDate = String(employee.hire_date).slice(0, 10);
         const probationEnd = addMonths(hireDate, PROBATION_MONTHS);
