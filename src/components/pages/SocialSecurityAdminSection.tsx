@@ -155,7 +155,7 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
     if (categoryFilter === 'all') return records;
     return records.filter((record) => {
       const department = String(record.department || '');
-      const isProduction = /生产|车间|产线|流水/.test(department);
+      const isProduction = !String(department || '').trim() || /生产|车间|产线|流水/.test(department);
       return categoryFilter === 'production' ? isProduction : !isProduction;
     });
   }, [records, categoryFilter]);

@@ -80,7 +80,8 @@ function isAgreementPurchaseRecord(record: SocialSecurityPurchaseRecord) {
 function resolveAgreementCategory(department?: string | null): SocialSecurityPurchaseCategory {
   // 生产/车间/产线/流水 算车间，其余（管理部、电商部、技术部等）都算管理部
   const text = String(department || '');
-  return /生产|车间|产线|流水/.test(text) ? 'production' : 'management';
+  const __t = String(text || '').trim();
+  return !__t || /生产|车间|产线|流水/.test(__t) ? 'production' : 'management';
 }
 
 function cloneData(record: SocialSecurityPurchaseRecord): SocialSecurityPurchaseFormData {

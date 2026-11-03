@@ -153,7 +153,10 @@ function resolveCategory(employee: EmployeeRow) {
   const location = String(employee.location || '');
   if (location.includes('办公室')) return 'management';
   if (location.includes('车间')) return 'production';
-  return /生产|车间|产线|流水/.test(String(employee.department || '')) ? 'production' : 'management';
+  const department = String(employee.department || '').trim();
+  // 部门为空的按车间处理
+  if (!department) return 'production';
+  return /生产|车间|产线|流水/.test(department) ? 'production' : 'management';
 }
 
 export async function GET(request: NextRequest) {

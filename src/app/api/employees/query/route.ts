@@ -172,7 +172,8 @@ function isOfficeEmployee(employee: { location?: string | null; department?: str
   const location = String(employee.location || '').trim();
   if (location) return location === '办公室';
   const department = String(employee.department || '');
-  return !/生产|车间|产线|流水/.test(department);
+  const __t = String(department || '').trim();
+  return Boolean(__t) && !/生产|车间|产线|流水/.test(__t);
 }
 
 function chinaTodayStr() {
