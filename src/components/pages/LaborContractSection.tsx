@@ -276,12 +276,13 @@ export default function LaborContractSection() {
           </div>
 
           <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
+            {([
               [employment === 'resigned' ? '离职员工' : '在职员工', summary.total, 'text-slate-900'],
               ['已登记合同', summary.signed, 'text-emerald-600'],
               ['未登记', summary.pending, 'text-amber-600'],
-              ['超期未登记', summary.overdue, 'text-red-600'],
-            ].map(([label, value, color]) => (
+              // 已离职员工不再统计/提醒超期
+              employment === 'resigned' ? ['已离职（不提醒）', summary.total, 'text-slate-400'] : ['超期未登记', summary.overdue, 'text-red-600'],
+            ] as Array<[string, number, string]>).map(([label, value, color]) => (
               <div key={String(label)} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
                 <div className="text-xs text-slate-500">{label}</div>
                 <div className={`mt-1 text-xl font-semibold ${color}`}>{value}</div>
@@ -304,8 +305,7 @@ export default function LaborContractSection() {
                   <TableHead>到期时间</TableHead>
                   <TableHead>续签申请</TableHead>
                   <TableHead>倒计时</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
+                  <TableHead className="text-right">操作</TableHead>                </TableRow>
               </TableHeader>
               <TableBody>
                 {loading && (
@@ -336,9 +336,11 @@ export default function LaborContractSection() {
                         </span>
                       ) : '-'}
                     </TableCell>
-                    <TableCell>{renderDays(record)}</TableCell>
+                    <TableCell>{employment === 'resigned' ? '-' : renderDays(record)}</TableCell>
                     <TableCell className="text-right">
-                      {record.pendingRenewal ? (
+                      {employment === 'resigned' ? (
+                        <span className="text-sm text-slate-400">已离职</span>
+                      ) : record.pendingRenewal ? (
                         <Button size="sm" className="bg-amber-500 hover:bg-amber-600" onClick={() => openReview(record)}>
                           审核续签
                         </Button>

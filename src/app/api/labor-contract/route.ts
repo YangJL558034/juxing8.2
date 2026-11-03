@@ -104,7 +104,7 @@ function buildContractView(employee: EmployeeRow, purchase: PurchaseRow | undefi
     hireDate,
     daysSinceHire: hireDate ? daysSinceHire : null,
     daysLeft,
-    overdue: Boolean(hireDate) && !signed && daysLeft !== null && daysLeft < 0,
+    overdue: !['离职', '已离职'].includes(String(employee.status || '')) && Boolean(hireDate) && !signed && daysLeft !== null && daysLeft < 0,
     signed,
     expired,
     canEdit,
