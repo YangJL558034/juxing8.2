@@ -69,6 +69,21 @@ export async function GET(request: NextRequest) {
       where.push('(name LIKE ? OR id_card LIKE ? OR phone LIKE ? OR department LIKE ? OR position LIKE ?)');
       params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
     }
+    // 按在职/已离职划分：以员工档案状态为准（身份证优先，其次姓名）
+    const employment = searchParams.get('employment');
+    if (employment === 'resigned') {
+      where.push(`EXISTS (
+        SELECT 1 FROM employees e
+        WHERE COALESCE(e.status, '在职') IN ('离职', '已离职')
+          AND (e.id_card = social_security_records.id_card OR e.name = social_security_records.name)
+      )`);
+    } else if (employment === 'active') {
+      where.push(`NOT EXISTS (
+        SELECT 1 FROM employees e
+        WHERE COALESCE(e.status, '在职') IN ('离职', '已离职')
+          AND (e.id_card = social_security_records.id_card OR e.name = social_security_records.name)
+      )`);
+    }
 
     const rows = db.prepare(`
       SELECT * FROM social_security_records

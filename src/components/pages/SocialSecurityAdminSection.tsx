@@ -116,6 +116,8 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
   const [editTarget, setEditTarget] = useState<SocialSecurityRecord | null>(null);
   const [editData, setEditData] = useState<SocialSecurityFormData>(() => createDefaultSocialSecurityData());
   const [saving, setSaving] = useState(false);
+  // 在职 / 已离职
+  const [employment, setEmployment] = useState<'active' | 'resigned'>('active');
   // 新建申请（购买 / 不购买社保）
   const [createOpen, setCreateOpen] = useState(false);
   const [createData, setCreateData] = useState<SocialSecurityFormData>(() => createDefaultSocialSecurityData('no_purchase'));
@@ -129,6 +131,7 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
       if (listMode === 'deleted') params.set('deleted', '1');
       if (typeFilter !== 'all') params.set('type', typeFilter);
       if (keyword.trim()) params.set('keyword', keyword.trim());
+      params.set('employment', employment);
       const response = await fetch(`/api/social-security?${params.toString()}`, { cache: 'no-store' });
       const result = await response.json().catch(() => ({})) as ListResponse;
       if (!response.ok || !result.success) {
@@ -141,7 +144,7 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
     } finally {
       setLoading(false);
     }
-  }, [keyword, listMode, typeFilter]);
+  }, [keyword, listMode, typeFilter, employment]);
 
   useEffect(() => {
     void loadRecords();
@@ -328,6 +331,20 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
             />
           </div>
           <Button variant="outline" onClick={runSearch}>搜索</Button>
+          <Button
+            variant={employment === 'active' ? 'default' : 'outline'}
+            className={employment === 'active' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+            onClick={() => setEmployment('active')}
+          >
+            在职员工
+          </Button>
+          <Button
+            variant={employment === 'resigned' ? 'default' : 'outline'}
+            className={employment === 'resigned' ? 'bg-slate-600 hover:bg-slate-700' : ''}
+            onClick={() => setEmployment('resigned')}
+          >
+            已离职员工
+          </Button>
           {([
             ['all', '全部部门'],
             ['management', '管理部'],
