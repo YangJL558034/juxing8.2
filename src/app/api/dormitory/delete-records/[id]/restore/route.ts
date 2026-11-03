@@ -39,6 +39,8 @@ export async function POST(
     }
 
     const row = getDeleteRecordAsDormitoryRow(deleteRow);
+    // 恢复时还原删除前的状态（老数据没有 status 时按已退宿处理）
+    const restoreStatus = String((row as unknown as { status?: string }).status || '已退宿') || '已退宿';
     const existing = db.prepare('SELECT id FROM dormitory_records WHERE id = ?').get(row.id);
     if (existing) {
       return NextResponse.json({ success: false, error: '原住宿记录ID已存在，无法恢复' }, { status: 400 });
@@ -79,7 +81,7 @@ export async function POST(
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '+8 hours'))
       `).run(
         row.id,
-        '已退宿',
+        restoreStatus,
         row.name,
         row.phone,
         row.department,

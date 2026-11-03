@@ -107,8 +107,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     const record = parseDormitoryRow(row);
-    if (record.status !== '已退宿') {
-      return NextResponse.json({ success: false, error: '只有已退宿记录可以删除' }, { status: 400 });
+    if (record.status === '已入住') {
+      return NextResponse.json({ success: false, error: '已入住的记录请先办理退宿，再删除' }, { status: 400 });
     }
 
     ensureDormitoryDeleteRecordsTable();

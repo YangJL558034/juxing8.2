@@ -1069,11 +1069,14 @@ export default function AdministrationPage({ section = 'dormitory' }: { section?
   };
 
   const deleteDormitoryRecord = async (record: DormitoryRecord) => {
-    if (record.status !== '已退宿') {
-      alert('只有已退宿记录可以删除');
+    if (record.status === '已入住') {
+      alert('已入住的记录请先办理退宿，再删除');
       return;
     }
-    if (!confirm(`确定删除 ${record.name} 的已退宿记录吗？删除后会保留删除记录 1 个月。`)) return;
+    const tip = record.status === '已退宿'
+      ? `确定删除 ${record.name} 的已退宿记录吗？删除后会保留删除记录 1 个月。`
+      : `确定删除 ${record.name} 的住宿申请（${record.status}）吗？删除后会保留删除记录 1 个月，可在「删除记录」里恢复。`;
+    if (!confirm(tip)) return;
 
     setDeletingRecordId(record.id);
     try {
@@ -1453,6 +1456,17 @@ export default function AdministrationPage({ section = 'dormitory' }: { section?
                               {record.status === '已审核' && (
                                 <button type="button" className="text-sm font-medium text-emerald-600 hover:text-emerald-700" onClick={() => openCheckIn(record)}>
                                   办理入住
+                                </button>
+                              )}
+                              {record.status !== '已入住' && (
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-700 disabled:cursor-not-allowed disabled:text-slate-300"
+                                  disabled={deletingRecordId === record.id}
+                                  onClick={() => void deleteDormitoryRecord(record)}
+                                >
+                                  {deletingRecordId === record.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                                  删除
                                 </button>
                               )}
                               {record.status === '已入住' && (
