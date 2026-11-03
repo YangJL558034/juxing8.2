@@ -12,6 +12,7 @@ import { Loader2, RefreshCcw, Mail, FileText } from 'lucide-react';
 interface ContractRecord {
   employeeId: number;
   name: string;
+  employmentStatus?: string;
   idCard: string;
   department: string;
   position: string;
@@ -53,6 +54,8 @@ export default function LaborContractSection() {
   const [keyword, setKeyword] = useState('');
   const [onlyPending, setOnlyPending] = useState(false);
   const [category, setCategory] = useState<'all' | 'management' | 'production'>('all');
+  // 在职 / 已离职
+  const [employment, setEmployment] = useState<'active' | 'resigned'>('active');
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [target, setTarget] = useState<ContractRecord | null>(null);
@@ -72,7 +75,7 @@ export default function LaborContractSection() {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/labor-contract', { cache: 'no-store' });
+      const response = await fetch(`/api/labor-contract?employment=${employment}`, { cache: 'no-store' });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || !result.success) throw new Error(result.error || '获取劳动合同信息失败');
       setRecords(result.records || []);
@@ -82,7 +85,7 @@ export default function LaborContractSection() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [employment]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -239,6 +242,23 @@ export default function LaborContractSection() {
         </CardHeader>
         <CardContent>
           <div className="mb-3 flex flex-wrap items-center gap-2">
+            <Button
+              variant={employment === 'active' ? 'default' : 'outline'}
+              className={employment === 'active' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+              onClick={() => setEmployment('active')}
+            >
+              在职员工
+            </Button>
+            <Button
+              variant={employment === 'resigned' ? 'default' : 'outline'}
+              className={employment === 'resigned' ? 'bg-slate-600 hover:bg-slate-700' : ''}
+              onClick={() => setEmployment('resigned')}
+            >
+              已离职员工
+            </Button>
+          </div>
+
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             {([
               ['all', '全部'],
               ['management', '管理部'],
@@ -257,7 +277,7 @@ export default function LaborContractSection() {
 
           <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              ['在职员工', summary.total, 'text-slate-900'],
+              [employment === 'resigned' ? '离职员工' : '在职员工', summary.total, 'text-slate-900'],
               ['已登记合同', summary.signed, 'text-emerald-600'],
               ['未登记', summary.pending, 'text-amber-600'],
               ['超期未登记', summary.overdue, 'text-red-600'],

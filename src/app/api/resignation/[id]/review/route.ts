@@ -3,6 +3,7 @@ import { db } from '@/lib/database';
 import { verifyToken } from '@/lib/auth';
 import { normalizeResignationData, parseResignationRow, type ResignationDbRow } from '@/lib/resignation-records';
 import { canReviewPersonnel } from '@/lib/permission-check';
+import { createTerminationFromResignation, markEmployeeResignedInSocialSecurity } from '@/lib/labor-contract-termination-sync';
 
 type ResignationData = ReturnType<typeof normalizeResignationData>;
 
@@ -76,10 +77,23 @@ function syncResignationToEmployeeFiles(data: ResignationData) {
     data.department,
   );
 
+  // 联动：社保/合同记录标记离职；已签合同则自动生成解除劳动合同通知书
+  const socialSecurityUpdated = markEmployeeResignedInSocialSecurity({
+    employeeId: matchedEmployee?.id || null,
+    idCard: data.idCard || '',
+  });
+  const terminationCreated = createTerminationFromResignation({
+    name: data.name,
+    resignationDate: data.resignationDate,
+    reviewedAt: new Date().toISOString(),
+  });
+
   return {
     salaryEmployeeId: matchedEmployee?.id || null,
     salaryEmployeeUpdated,
     onboardingUpdated: onboardingResult.changes,
+    socialSecurityUpdated,
+    terminationCreated,
   };
 }
 

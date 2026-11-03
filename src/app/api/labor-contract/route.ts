@@ -96,6 +96,7 @@ function buildContractView(employee: EmployeeRow, purchase: PurchaseRow | undefi
   return {
     employeeId: employee.id,
     name: employee.name,
+    employmentStatus: employee.status || '在职',
     idCard: employee.id_card || '',
     department: employee.department || '',
     position: employee.position || '',
@@ -161,19 +162,26 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
 
     if (user) {
-      // 已被「解除劳动合同」登记过的员工，不再出现在劳动合同管理里
+      // employment=resigned 时只返回已离职员工的合同，默认只返回在职
+      const employment = searchParams.get('employment') === 'resigned' ? 'resigned' : 'active';
+      const statusWhere = employment === 'resigned'
+        ? "e.status IN ('离职', '已离职')"
+        : "e.status = '在职'";
+
+      // 在职员工若已被「解除劳动合同」登记过，不再出现在在职列表里；离职列表不受此限制
       const employees = db.prepare(`
         SELECT id, name, id_card, department, position, hire_date, location, status
         FROM employees e
-        WHERE e.status = '在职'
-          AND NOT EXISTS (
+        WHERE ${statusWhere}
+          ${employment === 'active' ? `AND NOT EXISTS (
             SELECT 1 FROM labor_contract_termination_records t
             WHERE t.deleted_at IS NULL AND t.employee_name = e.name
-          )
+          )` : ''}
         ORDER BY hire_date DESC, id DESC
       `).all() as EmployeeRow[];
       return NextResponse.json({
         success: true,
+        employment,
         contractDays: CONTRACT_DAYS,
         records: employees.map((employee) => buildContractView(employee, findPurchase(employee))),
       });
