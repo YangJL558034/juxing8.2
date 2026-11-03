@@ -176,6 +176,8 @@ export default function SocialSecurityPurchaseManager() {
   const [listMode, setListMode] = useState<ListMode>('active');
   // 已购买 / 未购买 分开显示
   const [purchaseView, setPurchaseView] = useState<'bought' | 'notBought'>('bought');
+  // 折叠状态：默认收起，点标题展开
+  const [expanded, setExpanded] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [viewTarget, setViewTarget] = useState<SocialSecurityPurchaseRecord | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -433,10 +435,18 @@ export default function SocialSecurityPurchaseManager() {
     <div id="social-security-purchase-management" className="scroll-mt-24 mt-4 rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
+          <button
+            type="button"
+            className="flex items-center gap-2 text-sm font-semibold text-slate-950"
+            onClick={() => setExpanded((value) => !value)}
+          >
+            <span className={`inline-block transition-transform ${expanded ? 'rotate-90' : ''}`}>▸</span>
             <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
             购买社保
-          </div>
+            <span className="ml-1 text-xs font-normal text-slate-500">
+              已购买 {visibleRecords.length} · 未购买 {agreementTotal}
+            </span>
+          </button>
           <p className="mt-1 text-sm text-slate-500">后台填写或按劳动合同台账导入，管理部和车间分开管理，在职、离职和放弃协议分开展示。</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -526,6 +536,9 @@ export default function SocialSecurityPurchaseManager() {
         </div>
       </div>
 
+      {/* 折叠后只显示标题，点标题展开 */}
+      {expanded && (
+      <>
       {error && (
         <div className="mt-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
@@ -732,6 +745,8 @@ export default function SocialSecurityPurchaseManager() {
           </Table>
         </div>
       </div>
+      )}
+      </>
       )}
 
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
