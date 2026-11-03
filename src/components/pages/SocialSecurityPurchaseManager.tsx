@@ -78,7 +78,9 @@ function isAgreementPurchaseRecord(record: SocialSecurityPurchaseRecord) {
 }
 
 function resolveAgreementCategory(department?: string | null): SocialSecurityPurchaseCategory {
-  return String(department || '').includes('管理') ? 'management' : 'production';
+  // 生产/车间/产线/流水 算车间，其余（管理部、电商部、技术部等）都算管理部
+  const text = String(department || '');
+  return /生产|车间|产线|流水/.test(text) ? 'production' : 'management';
 }
 
 function cloneData(record: SocialSecurityPurchaseRecord): SocialSecurityPurchaseFormData {
