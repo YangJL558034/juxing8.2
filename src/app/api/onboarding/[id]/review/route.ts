@@ -3,7 +3,7 @@ import { db, logOperationServer } from '@/lib/database';
 import { verifyToken } from '@/lib/auth';
 import { parseOnboardingRow, type OnboardingDbRow } from '@/lib/onboarding-records';
 import { resolveEmployeeLocationByDepartment } from '@/lib/employee-location';
-import { setProbationRequired } from '@/lib/probation';
+import { setProbationRequired, normalizeProbationMonths } from '@/lib/probation';
 
 async function requireUser(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
@@ -22,8 +22,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = await request.json();
     const reviewerName = String(body?.reviewerName || '').trim();
     const hrOpinion = String(body?.hrOpinion || '同意入职。').trim() || '同意入职。';
-    // HR 审核时决定是否需要试用期（默认需要）
+    // HR 审核时决定是否需要试用期（默认需要，默认 1 个月，可自定义月数）
     const probationRequired = body?.probationRequired === undefined ? true : Boolean(body.probationRequired);
+    const probationMonths = normalizeProbationMonths(body?.probationMonths);
 
     if (!reviewerName) {
       return NextResponse.json({ success: false, error: '请填写审核人姓名' }, { status: 400 });
@@ -93,7 +94,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     // 记录是否需要试用期（0 = 直接正式工，员工端不能再提交转正申请）
-    if (employeeId) setProbationRequired(employeeId, probationRequired);
+    if (employeeId) setProbationRequired(employeeId, probationRequired, probationMonths);
 
     db.prepare(`
       UPDATE onboarding_records

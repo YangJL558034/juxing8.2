@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, db } from '@/lib/database';
 import { setEmployeeSession, getEmployeeByRequest, employeeNoticeAccess } from '@/lib/employee-session';
-import { getProbationRequired } from '@/lib/probation';
+import { getProbationRequired, getProbationMonths, ensureProbationColumn } from '@/lib/probation';
 
 // 身份证脱敏：只保留前 6 位和后 4 位
 function maskIdCard(value: string | null | undefined) {
@@ -201,10 +201,12 @@ export function computeProbation(employee: {
   status?: string | null;
   location?: string | null;
   department?: string | null;
+  probation_months?: number | null;
 }) {
   // 只有办公室岗位走试用期；车间（生产）不显示也不提醒
   if (!isOfficeEmployee(employee)) return null;
 
+  ensureProbationColumn();
   const hireDate = String(employee.hire_date || '').slice(0, 10);
   if (!hireDate) return null;
 
@@ -241,7 +243,8 @@ export function computeProbation(employee: {
     console.error('computeProbation regularization lookup error:', error);
   }
 
-  const probationEnd = addMonths(hireDate, PROBATION_MONTHS);
+  const probationMonths = getProbationMonths(employee);
+  const probationEnd = addMonths(hireDate, probationMonths);
   const today = chinaTodayStr();
   const daysLeft = probationEnd ? daysBetween(today, probationEnd) : 0;
 
@@ -249,7 +252,7 @@ export function computeProbation(employee: {
     return {
       status: 'regular' as const,
       hireDate,
-      probationMonths: PROBATION_MONTHS,
+      probationMonths,
       probationEnd,
       regularDate,
       daysLeft: 0,
@@ -261,7 +264,7 @@ export function computeProbation(employee: {
   return {
     status: daysLeft < 0 ? ('expired' as const) : ('probation' as const),
     hireDate,
-    probationMonths: PROBATION_MONTHS,
+    probationMonths,
     probationEnd,
     regularDate: '',
     daysLeft,

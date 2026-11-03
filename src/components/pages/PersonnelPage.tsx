@@ -163,6 +163,13 @@ function money(value?: string | null) {
   return text.includes('元') ? text : `${text} 元/月`;
 }
 
+/** 入职日期 + N 个月 = 试用期结束日（用于审核时预览） */
+function addMonthsLabel(dateStr: string, months: number) {
+  const [y, m, d] = String(dateStr || '').split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(Date.UTC(y, m - 1 + months, d)).toISOString().slice(0, 10);
+}
+
 function withNote(answer?: string, note?: string) {
   return note ? `${display(answer)}，${note}` : display(answer);
 }
@@ -364,6 +371,8 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
   const [hrOpinion, setHrOpinion] = useState('同意入职。');
   // 是否需要试用期（不需要 = 直接正式工，员工端不能提交转正申请）
   const [probationRequired, setProbationRequired] = useState(true);
+  // 试用期月数（默认 1 个月，可自定义）
+  const [probationMonths, setProbationMonths] = useState(1);
   const [reviewing, setReviewing] = useState(false);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -597,8 +606,9 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
     setReviewTarget(record);
     setReviewerName(record.reviewerName || '');
     setHrOpinion(record.hrOpinion || '同意入职。');
-    // 默认需要试用期（车间以外），已存在员工档案时按库里的设置回填
+    // 默认需要试用期、1 个月，HR 可改
     setProbationRequired(true);
+    setProbationMonths(1);
     setReviewOpen(true);
   };
 
@@ -642,6 +652,7 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
           reviewerName: reviewerName.trim(),
           hrOpinion: hrOpinion.trim() || '同意入职。',
           probationRequired,
+          probationMonths,
         }),
       });
       const result = await response.json().catch(() => ({})) as MutateResponse;
@@ -2768,7 +2779,7 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
                   className={probationRequired ? 'bg-blue-600 hover:bg-blue-700' : ''}
                   onClick={() => setProbationRequired(true)}
                 >
-                  需要试用期（1 个月）
+                  需要试用期
                 </Button>
                 <Button
                   type="button"
@@ -2780,9 +2791,50 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
                   不需要（直接正式工）
                 </Button>
               </div>
+
+              {/* 试用期时长：默认 1 个月，可自定义 */}
+              {probationRequired && (
+                <div className="mt-2 space-y-2 rounded-md bg-white px-3 py-2 ring-1 ring-slate-200">
+                  <div className="flex items-center gap-2 text-sm text-slate-700">
+                    <span>试用期时长</span>
+                    <div className="flex flex-wrap gap-1">
+                      {[1, 2, 3, 6].map((month) => (
+                        <Button
+                          key={month}
+                          type="button"
+                          size="sm"
+                          variant={probationMonths === month ? 'default' : 'outline'}
+                          className={probationMonths === month ? 'h-7 bg-blue-600 px-2 hover:bg-blue-700' : 'h-7 px-2'}
+                          onClick={() => setProbationMonths(month)}
+                        >
+                          {month} 个月
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={String(probationMonths)}
+                        onChange={(event) => {
+                          const next = Number(event.target.value);
+                          setProbationMonths(Number.isFinite(next) && next >= 1 && next <= 12 ? Math.round(next) : 1);
+                        }}
+                        className="h-7 w-16 text-center"
+                      />
+                      <span className="text-xs text-slate-500">个月</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    试用期至 {reviewTarget?.hireDate ? addMonthsLabel(String(reviewTarget.hireDate).slice(0, 10), probationMonths) : '入职日期 + ' + probationMonths + ' 个月'}
+                  </p>
+                </div>
+              )}
+
               <p className="text-xs text-slate-500">
                 {probationRequired
-                  ? '员工入职后 1 个月内为试用期，期满后在「转正申请」提交转正。'
+                  ? `员工入职后 ${probationMonths} 个月内为试用期，期满后在「转正申请」提交转正。`
                   : '设为正式工后，该员工在小程序/员工自助平台不能提交转正申请。'}
               </p>
             </div>

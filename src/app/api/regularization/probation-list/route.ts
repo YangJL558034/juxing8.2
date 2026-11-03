@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, logOperationServer } from '@/lib/database';
 import { verifyToken } from '@/lib/auth';
-import { isOfficeEmployee, getProbationRequired, chinaToday, addMonths, daysBetween, PROBATION_MONTHS } from '@/lib/probation';
+import { isOfficeEmployee, normalizeProbationMonths, chinaToday, addMonths, daysBetween, PROBATION_MONTHS, ensureProbationColumn } from '@/lib/probation';
 import { normalizeRegularizationData } from '@/lib/regularization-records';
 
 async function requireUser(request: NextRequest) {
@@ -22,8 +22,9 @@ export async function GET(request: NextRequest) {
     if (!user) return NextResponse.json({ success: false, error: '未登录' }, { status: 401 });
 
     const today = chinaToday();
+    ensureProbationColumn();
     const employees = db.prepare(`
-      SELECT id, name, department, position, hire_date, location, probation_required
+      SELECT id, name, department, position, hire_date, location, probation_required, probation_months
       FROM employees
       WHERE COALESCE(status, '在职') NOT IN ('离职', '已离职')
         AND hire_date IS NOT NULL AND TRIM(hire_date) <> ''
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
       hire_date: string;
       location: string | null;
       probation_required: number | null;
+      probation_months: number | null;
     }>;
 
     const items = employees
@@ -43,7 +45,8 @@ export async function GET(request: NextRequest) {
       .filter((employee) => Number(employee.probation_required ?? 1) !== 0)
       .map((employee) => {
         const hireDate = String(employee.hire_date).slice(0, 10);
-        const probationEnd = addMonths(hireDate, PROBATION_MONTHS);
+        const probationMonths = normalizeProbationMonths(employee.probation_months ?? PROBATION_MONTHS);
+        const probationEnd = addMonths(hireDate, probationMonths);
         const daysLeft = probationEnd ? daysBetween(today, probationEnd) : 0;
 
         const latest = db.prepare(`
@@ -58,6 +61,7 @@ export async function GET(request: NextRequest) {
           department: String(employee.department || ''),
           position: String(employee.position || ''),
           hireDate,
+          probationMonths,
           probationEnd,
           daysLeft,
           overdue: daysLeft < 0,

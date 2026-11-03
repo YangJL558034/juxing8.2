@@ -1,23 +1,39 @@
 import { db } from '@/lib/database';
 
-/** 试用期统一 1 个月；提前 20 天提醒 HR（仅办公室岗位） */
+/** 默认为 1 个月试用期，可在入职审核时自定义；提前 20 天提醒 HR（仅办公室岗位） */
 export const PROBATION_MONTHS = 1;
 export const PROBATION_REMIND_DAYS = 20;
+/** 自定义试用期允许的范围（月） */
+export const PROBATION_MONTHS_MIN = 1;
+export const PROBATION_MONTHS_MAX = 12;
 
 let columnReady = false;
 
-/** 员工表增加「是否需要试用期」字段（0 = 直接正式工，不显示/不允许转正申请） */
+/** 员工表增加「是否需要试用期」「试用期月数」字段（幂等，缺哪个补哪个） */
 export function ensureProbationColumn() {
-  if (columnReady) return;
   try {
-    const columns = db.prepare('PRAGMA table_info(employees)').all() as Array<{ name: string }>;
-    if (!columns.some((column) => column.name === 'probation_required')) {
+    const columns = (db.prepare('PRAGMA table_info(employees)').all() as Array<{ name: string }>).map((column) => column.name);
+    if (columns.includes('probation_required') && columns.includes('probation_months')) {
+      columnReady = true;
+      return;
+    }
+    if (!columns.includes('probation_required')) {
       db.exec('ALTER TABLE employees ADD COLUMN probation_required INTEGER DEFAULT 1');
+    }
+    if (!columns.includes('probation_months')) {
+      db.exec('ALTER TABLE employees ADD COLUMN probation_months INTEGER DEFAULT 1');
     }
     columnReady = true;
   } catch (error) {
     console.error('ensureProbationColumn error:', error);
   }
+}
+
+/** 规范化试用期月数：1~12，非法值回落到默认 1 个月 */
+export function normalizeProbationMonths(value: unknown): number {
+  const months = Math.round(Number(value));
+  if (!Number.isFinite(months) || months < PROBATION_MONTHS_MIN) return PROBATION_MONTHS;
+  return Math.min(months, PROBATION_MONTHS_MAX);
 }
 
 /** 办公室 / 车间判定：优先 location，其次部门名称 */
@@ -45,10 +61,14 @@ export function daysBetween(from: string, to: string) {
   return Math.round((b - a) / 86400000);
 }
 
-export function setProbationRequired(employeeId: number, required: boolean) {
+export function setProbationRequired(employeeId: number, required: boolean, months?: unknown) {
   ensureProbationColumn();
   try {
-    db.prepare('UPDATE employees SET probation_required = ? WHERE id = ?').run(required ? 1 : 0, employeeId);
+    db.prepare('UPDATE employees SET probation_required = ?, probation_months = ? WHERE id = ?').run(
+      required ? 1 : 0,
+      normalizeProbationMonths(months),
+      employeeId,
+    );
     return true;
   } catch (error) {
     console.error('setProbationRequired error:', error);
@@ -66,4 +86,9 @@ export function getProbationRequired(employeeId: number): boolean {
   } catch {
     return true;
   }
+}
+
+/** 读取员工自定义的试用期月数（默认 1） */
+export function getProbationMonths(employee: { probation_months?: number | null }): number {
+  return normalizeProbationMonths(employee.probation_months ?? PROBATION_MONTHS);
 }
