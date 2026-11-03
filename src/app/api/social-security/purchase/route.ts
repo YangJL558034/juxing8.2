@@ -69,7 +69,19 @@ export async function GET(request: NextRequest) {
     const deleted = searchParams.get('deleted') === '1';
     const where: string[] = [];
     const params: unknown[] = [];
-    const resignedWhere = "(COALESCE(resignation_date, '') <> '' OR employment_status LIKE '%离%')";
+    // 以员工档案状态为准（社保表里的 employment_status 可能是导入时的旧值）
+    const resignedWhere = `(
+      EXISTS (
+        SELECT 1 FROM employees e
+        WHERE COALESCE(e.status, '在职') IN ('离职', '已离职')
+          AND (
+            (e.id_card IS NOT NULL AND e.id_card <> '' AND e.id_card = social_security_purchase_records.id_card)
+            OR e.name = social_security_purchase_records.employee_name
+          )
+      )
+      OR COALESCE(resignation_date, '') <> ''
+      OR employment_status LIKE '%离%'
+    )`;
 
     db.prepare("DELETE FROM social_security_purchase_records WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '+8 hours', '-7 days')").run();
 
@@ -98,7 +110,30 @@ export async function GET(request: NextRequest) {
       ORDER BY created_at DESC, id DESC
     `).all(...params) as SocialSecurityPurchaseDbRow[];
 
-    return NextResponse.json({ success: true, records: rows.map(parseSocialSecurityPurchaseRow) });
+    // 逐条用员工档案状态覆盖「在职/离职」，避免档案已离职但社保表仍显示在职
+    const resolveEmployment = db.prepare(`
+      SELECT status FROM employees
+      WHERE (id_card IS NOT NULL AND id_card <> '' AND id_card = ?)
+         OR name = ?
+      ORDER BY CASE WHEN id_card = ? THEN 0 ELSE 1 END
+      LIMIT 1
+    `);
+
+    const records = rows.map((row) => {
+      const record = parseSocialSecurityPurchaseRow(row);
+      const employee = resolveEmployment.get(row.id_card || '', row.employee_name, row.id_card || '') as
+        | { status: string | null }
+        | undefined;
+      const employeeStatus = String(employee?.status || '').trim();
+      const resigned = ['离职', '已离职'].includes(employeeStatus);
+      return {
+        ...record,
+        employmentStatus: resigned ? '离职' : (record.employmentStatus || '在职'),
+        resignedFromArchive: resigned,
+      };
+    });
+
+    return NextResponse.json({ success: true, records });
   } catch (error) {
     console.error('Get social security purchase records error:', error);
     return NextResponse.json({ success: false, error: '获取购买社保记录失败' }, { status: 500 });

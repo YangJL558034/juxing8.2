@@ -345,6 +345,90 @@ export default function SocialSecurityPurchaseManager() {
   const visibleAgreements = agreements.filter((record) => resolveAgreementCategory(record.department) === categoryFilter);
   const agreementTotal = visibleAgreements.length + agreementPurchaseRecords.length;
 
+  // 按员工合并：同一个人显示「自愿放弃社保声明」「要求不购买社保申请书」两份协议状态
+  const agreementGroups = (() => {
+    type Group = {
+      key: string;
+      employeeName: string;
+      idCard: string;
+      phone: string;
+      department: string;
+      position: string;
+      hasWaiver: boolean;
+      hasNoPurchase: boolean;
+      submittedAt?: string | null;
+      reviewerName?: string | null;
+      reviewedAt?: string | null;
+      resigned: boolean;
+      records: typeof visibleAgreements;
+      purchaseRecord?: (typeof agreementPurchaseRecords)[number];
+    };
+    const map = new Map<string, Group>();
+    const ensure = (key: string) => {
+      let group = map.get(key);
+      if (!group) {
+        group = {
+          key,
+          employeeName: '',
+          idCard: '',
+          phone: '',
+          department: '',
+          position: '',
+          hasWaiver: false,
+          hasNoPurchase: false,
+          resigned: false,
+          records: [],
+        };
+        map.set(key, group);
+      }
+      return group;
+    };
+
+    for (const record of visibleAgreements) {
+      const key = String(record.idCard || record.name || record.id);
+      const group = ensure(key);
+      group.employeeName = group.employeeName || String(record.name || '');
+      group.idCard = group.idCard || String(record.idCard || '');
+      group.phone = group.phone || String(record.phone || '');
+      group.department = group.department || String(record.department || '');
+      group.position = group.position || String(record.position || '');
+      group.submittedAt = group.submittedAt || record.submittedAt;
+      group.reviewerName = group.reviewerName || record.reviewerName;
+      group.reviewedAt = group.reviewedAt || record.reviewedAt;
+      group.records.push(record);
+      const docType = String(record.documentType || '');
+      if (docType === 'waiver' || docType === 'combined') group.hasWaiver = true;
+      if (docType === 'no_purchase' || docType === 'combined') group.hasNoPurchase = true;
+    }
+
+    for (const record of agreementPurchaseRecords) {
+      const key = String(record.idCard || record.employeeName || record.id);
+      const group = ensure(key);
+      group.employeeName = group.employeeName || String(record.employeeName || '');
+      group.idCard = group.idCard || String(record.idCard || '');
+      group.phone = group.phone || String(record.phone || '');
+      group.department = group.department || String(record.department || '');
+      group.submittedAt = group.submittedAt || record.createdAt;
+      group.purchaseRecord = record;
+      group.resigned = Boolean((record as { resignedFromArchive?: boolean }).resignedFromArchive)
+        || ['离职', '已离职'].includes(String(record.employmentStatus || ''));
+    }
+
+    return Array.from(map.values());
+  })();
+
+  const exportAgreementGroup = (group: { records: typeof visibleAgreements; purchaseRecord?: (typeof agreementPurchaseRecords)[number] }) => {
+    if (group.records.length > 0) {
+      // 优先导出最近一条声明（combined 已包含两份文件）
+      const combined = group.records.find((record) => String(record.documentType || '') === 'combined');
+      exportAgreement(combined || group.records[group.records.length - 1]);
+      return;
+    }
+    if (group.purchaseRecord) {
+      openView(group.purchaseRecord);
+    }
+  };
+
   return (
     <div id="social-security-purchase-management" className="scroll-mt-24 mt-4 rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -510,7 +594,12 @@ export default function SocialSecurityPurchaseManager() {
             {!loading && visibleRecords.map((record) => (
               <TableRow key={record.id}>
                 <TableCell className="font-medium text-slate-900">{record.categoryLabel}</TableCell>
-                <TableCell>{display(record.employeeName)}</TableCell>
+                <TableCell>
+                  {display(record.employeeName)}
+                  {['离职', '已离职'].includes(String(record.employmentStatus || '')) || (record as { resignedFromArchive?: boolean }).resignedFromArchive ? (
+                    <span className="ml-1 text-xs text-red-600">（已离职）</span>
+                  ) : null}
+                </TableCell>
                 <TableCell>{display(record.idCard)}</TableCell>
                 <TableCell>{display(record.phone)}</TableCell>
                 <TableCell>{display(record.department)}</TableCell>
@@ -605,49 +694,37 @@ export default function SocialSecurityPurchaseManager() {
                   </TableCell>
                 </TableRow>
               )}
-              {!agreementsLoading && visibleAgreements.map((record) => (
-                <TableRow key={`application-${record.id}`}>
-                  <TableCell className="font-medium text-slate-900">{record.documentTitle}</TableCell>
-                  <TableCell>{display(record.name)}</TableCell>
-                  <TableCell>{display(record.idCard)}</TableCell>
-                  <TableCell>{display(record.phone)}</TableCell>
-                  <TableCell>{display(record.department)}</TableCell>
-                  <TableCell>{display(record.position)}</TableCell>
-                  <TableCell>{formatDateTime(record.submittedAt)}</TableCell>
-                  <TableCell>{display(record.reviewerName)}</TableCell>
-                  <TableCell>{formatDateTime(record.reviewedAt)}</TableCell>
+              {!agreementsLoading && agreementGroups.map((group) => (
+                <TableRow key={`group-${group.key}`}>
+                  <TableCell className="font-medium text-slate-900">
+                    <div className="space-y-1">
+                      {(['waiver', 'no_purchase'] as const).map((type) => {
+                        const label = type === 'waiver' ? '自愿放弃社保声明' : '要求不购买社保申请书';
+                        const has = type === 'waiver' ? group.hasWaiver : group.hasNoPurchase;
+                        return (
+                          <div key={type} className={has ? 'text-slate-900' : 'text-slate-300'}>
+                            {has ? '✓' : '○'} {label}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {display(group.employeeName)}
+                    {group.resigned ? <span className="ml-1 text-xs text-red-600">（已离职）</span> : null}
+                  </TableCell>
+                  <TableCell>{display(group.idCard)}</TableCell>
+                  <TableCell>{display(group.phone)}</TableCell>
+                  <TableCell>{display(group.department)}</TableCell>
+                  <TableCell>{display(group.position)}</TableCell>
+                  <TableCell>{formatDateTime(group.submittedAt)}</TableCell>
+                  <TableCell>{display(group.reviewerName)}</TableCell>
+                  <TableCell>{formatDateTime(group.reviewedAt)}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => exportAgreement(record)}>
+                    <Button variant="outline" size="sm" onClick={() => exportAgreementGroup(group)}>
                       <Download className="h-4 w-4" />
                       导出协议
                     </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!agreementsLoading && agreementPurchaseRecords.map((record) => (
-                <TableRow key={`purchase-${record.id}`}>
-                  <TableCell className="font-medium text-slate-900">{display(record.insuranceStatus || '放弃协议')}</TableCell>
-                  <TableCell>{display(record.employeeName)}</TableCell>
-                  <TableCell>{display(record.idCard)}</TableCell>
-                  <TableCell>{display(record.phone)}</TableCell>
-                  <TableCell>{display(record.department)}</TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell>{formatDateTime(record.createdAt)}</TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => openView(record)}>
-                        <Eye className="h-4 w-4" />
-                        查看
-                      </Button>
-                      {listMode !== 'deleted' && (
-                        <Button variant="outline" size="sm" onClick={() => openEdit(record)}>
-                          <Pencil className="h-4 w-4" />
-                          修改
-                        </Button>
-                      )}
-                    </div>
                   </TableCell>
                 </TableRow>
               ))}
