@@ -445,7 +445,22 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
             getDate={(record) => record.createdAt}
             renderRow={(record) => (
               <TableRow key={record.id}>
-                <TableCell className="font-medium text-slate-900">{(record.mergedDocs && record.mergedDocs.length > 1 ? record.mergedDocs : [record]).map((doc) => (<div key={doc.id}>{doc.documentTitle}</div>))}</TableCell>
+                <TableCell className="font-medium text-slate-900">
+                  {(() => {
+                    const docs = record.mergedDocs && record.mergedDocs.length > 0 ? record.mergedDocs : [record];
+                    const titles = new Set<string>();
+                    for (const doc of docs) {
+                      const type = String(doc.documentType || '');
+                      if (type === 'combined') {
+                        titles.add('自愿放弃社保声明');
+                        titles.add('要求不购买社保申请书');
+                      } else if (doc.documentTitle) {
+                        titles.add(doc.documentTitle);
+                      }
+                    }
+                    return Array.from(titles).map((title) => <div key={title}>{title}</div>);
+                  })()}
+                </TableCell>
                 <TableCell>{display(record.name)}</TableCell>
                 <TableCell>{display(record.submittedBy)}</TableCell>
                 <TableCell>{formatDateTime(record.submittedAt)}</TableCell>
