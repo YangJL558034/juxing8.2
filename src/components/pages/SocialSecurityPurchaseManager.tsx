@@ -424,9 +424,23 @@ export default function SocialSecurityPurchaseManager() {
 
   const exportAgreementGroup = (group: { records: typeof visibleAgreements; purchaseRecord?: (typeof agreementPurchaseRecords)[number] }) => {
     if (group.records.length > 0) {
-      // 优先导出最近一条声明（combined 已包含两份文件）
+      // combined 一份记录包含两份文件；否则 waiver + no_purchase 两份都要导出
       const combined = group.records.find((record) => String(record.documentType || '') === 'combined');
-      exportAgreement(combined || group.records[group.records.length - 1]);
+      if (combined) {
+        exportAgreement(combined);
+        return;
+      }
+      const docs = group.records.filter((record) => !record.deletedAt);
+      if (docs.length === 0) {
+        exportAgreement(group.records[group.records.length - 1]);
+        return;
+      }
+      docs.forEach((record, index) => {
+        setTimeout(() => {
+          window.open(`/api/social-security/${record.id}/export`, '_blank', 'noopener,noreferrer');
+        }, index * 700);
+      });
+      setTimeout(() => void loadAgreements(), 900);
       return;
     }
     if (group.purchaseRecord) {
