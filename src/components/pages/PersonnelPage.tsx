@@ -1708,7 +1708,7 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
                       )}
                     </TableCell>
                     <TableCell>
-                      {item.appliedStatus === '待审核' ? (
+                      {['待处理', '待审核'].includes(item.appliedStatus) ? (
                         <span className="text-amber-600">已提交待审核</span>
                       ) : (
                         <span className="text-slate-400">未提交</span>
