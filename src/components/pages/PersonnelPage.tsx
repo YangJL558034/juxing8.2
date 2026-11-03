@@ -37,6 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
+  TableBody,
   TableCell,
   TableHead,
   TableHeader,
@@ -293,12 +294,23 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
   const [records, setRecords] = useState<OnboardingRecord[]>([]);
   const [counts, setCounts] = useState<OnboardingCounts>(emptyCounts);
   const [regularizationRecords, setRegularizationRecords] = useState<RegularizationRecord[]>([]);
-  // 试用期提醒（20 天内到期 / 已超期未登记）
-  const [probationDueSoon, setProbationDueSoon] = useState<Array<{ employeeId: number; name: string; department: string; probationEnd: string; daysLeft: number }>>([]);
-  const [probationOverdue, setProbationOverdue] = useState<Array<{ employeeId: number; name: string; department: string; probationEnd: string; daysLeft: number }>>([]);
+  // 试用期员工（办公室 + 需要试用期 + 未转正）
+  const [probationList, setProbationList] = useState<Array<{
+    employeeId: number;
+    name: string;
+    department: string;
+    position: string;
+    hireDate: string;
+    probationEnd: string;
+    daysLeft: number;
+    overdue: boolean;
+    appliedStatus: string;
+  }>>([]);
+  const [probationLoading, setProbationLoading] = useState(false);
+  const [manualRegularizingId, setManualRegularizingId] = useState<number | null>(null);
   const [regularizationLoading, setRegularizationLoading] = useState(false);
   const [regularizationError, setRegularizationError] = useState('');
-  const [regularizationListMode, setRegularizationListMode] = useState<'pending' | 'reviewed' | 'deleted'>('pending');
+  const [regularizationListMode, setRegularizationListMode] = useState<'probation' | 'pending' | 'reviewed' | 'deleted'>('probation');
   const [regularizationReviewOpen, setRegularizationReviewOpen] = useState(false);
   const [regularizationReviewTarget, setRegularizationReviewTarget] = useState<RegularizationRecord | null>(null);
   const [regularizationReviewData, setRegularizationReviewData] = useState<RegularizationFormData | null>(null);
@@ -427,22 +439,47 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
     void loadRegularizationRecords();
   }, [loadRegularizationRecords]);
 
-  // 试用期 20 天内到期提醒
-  useEffect(() => {
-    const loadProbationDue = async () => {
-      try {
-        const res = await fetch('/api/regularization/probation-due', { cache: 'no-store' });
-        const data = await res.json().catch(() => ({}));
-        if (data.success) {
-          setProbationDueSoon(data.dueSoon || []);
-          setProbationOverdue(data.overdue || []);
-        }
-      } catch (error) {
-        console.error('Load probation due error:', error);
+  // 试用期员工列表（办公室岗位 + 需要试用期 + 未转正）
+  const loadProbationList = useCallback(async () => {
+    setProbationLoading(true);
+    try {
+      const res = await fetch('/api/regularization/probation-list', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (data.success) {
+        setProbationList(data.items || []);
       }
-    };
-    void loadProbationDue();
+    } catch (error) {
+      console.error('Load probation list error:', error);
+    } finally {
+      setProbationLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadProbationList();
+  }, [loadProbationList]);
+
+  // 管理员手动转为正式工
+  const handleManualRegularize = async (item: { employeeId: number; name: string }) => {
+    if (!confirm(`确定把 ${item.name} 转为正式员工吗？转正日期为今天。`)) return;
+    setManualRegularizingId(item.employeeId);
+    try {
+      const res = await fetch('/api/regularization/probation-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId: item.employeeId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || '转正失败');
+      await loadProbationList();
+      await loadRegularizationRecords();
+      alert(data.message || '已转为正式员工');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '转正失败');
+    } finally {
+      setManualRegularizingId(null);
+    }
+  };
 
   const loadWorkCertificateRecords = useCallback(async () => {
     setWorkCertificateLoading(true);
@@ -1571,6 +1608,13 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
           </div>
           <div className="flex gap-2">
             <Button
+              variant={regularizationListMode === 'probation' ? 'default' : 'outline'}
+              className={regularizationListMode === 'probation' ? 'bg-amber-500 hover:bg-amber-600' : ''}
+              onClick={() => setRegularizationListMode('probation')}
+            >
+              试用期员工{probationList.length > 0 ? ` ${probationList.length}` : ''}
+            </Button>
+            <Button
               variant={regularizationListMode === 'pending' ? 'default' : 'outline'}
               className={regularizationListMode === 'pending' ? 'bg-slate-950 hover:bg-slate-800' : ''}
               onClick={() => setRegularizationListMode('pending')}
@@ -1607,32 +1651,78 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
           </div>
         )}
 
-        {/* 试用期提醒：提前 20 天 */}
-        {(probationDueSoon.length > 0 || probationOverdue.length > 0) && (
-          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm">
-            <div className="font-medium text-amber-800">
-              试用期提醒（提前 20 天）
-            </div>
-            {probationDueSoon.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {probationDueSoon.map((item) => (
-                  <span key={item.employeeId} className="rounded-full bg-white px-3 py-1 text-xs text-amber-800 ring-1 ring-amber-200">
-                    {item.name}（{item.department || '-'}）剩 {item.daysLeft} 天 · {item.probationEnd}
-                  </span>
+        {/* 试用期员工：办公室岗位、HR 勾选了需要试用期、且还没转正 */}
+        {regularizationListMode === 'probation' && (
+          <div className="mt-4 overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>姓名</TableHead>
+                  <TableHead>部门</TableHead>
+                  <TableHead>岗位</TableHead>
+                  <TableHead>入职日期</TableHead>
+                  <TableHead>试用期至</TableHead>
+                  <TableHead>倒计时</TableHead>
+                  <TableHead>转正申请</TableHead>
+                  <TableHead className="text-right">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {probationLoading && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-24 text-center text-sm text-slate-500">正在加载...</TableCell>
+                  </TableRow>
+                )}
+                {!probationLoading && probationList.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-24 text-center text-sm text-slate-500">
+                      暂无试用期员工（车间岗位和已转正的不在这里）
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!probationLoading && probationList.map((item) => (
+                  <TableRow key={item.employeeId}>
+                    <TableCell className="font-medium text-slate-900">{item.name}</TableCell>
+                    <TableCell>{item.department || '-'}</TableCell>
+                    <TableCell>{item.position || '-'}</TableCell>
+                    <TableCell>{item.hireDate}</TableCell>
+                    <TableCell>{item.probationEnd}</TableCell>
+                    <TableCell>
+                      {item.overdue ? (
+                        <span className="font-semibold text-red-600">已超期 {Math.abs(item.daysLeft)} 天</span>
+                      ) : item.daysLeft <= 20 ? (
+                        <span className="font-semibold text-amber-600">剩 {item.daysLeft} 天</span>
+                      ) : (
+                        <span className="text-slate-600">剩 {item.daysLeft} 天</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.appliedStatus === '待审核' ? (
+                        <span className="text-amber-600">已提交待审核</span>
+                      ) : (
+                        <span className="text-slate-400">未提交</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                        disabled={manualRegularizingId === item.employeeId}
+                        onClick={() => void handleManualRegularize(item)}
+                      >
+                        {manualRegularizingId === item.employeeId && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+                        转为正式工
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </div>
-            )}
-            {probationOverdue.length > 0 && (
-              <div className="mt-2 text-xs text-amber-700">
-                另有 {probationOverdue.length} 人试用期已过但未提交转正申请：
-                {probationOverdue.slice(0, 8).map((item) => `${item.name}(${item.department || '-'})`).join('、')}
-                {probationOverdue.length > 8 ? ' 等' : ''}
-              </div>
-            )}
+              </TableBody>
+            </Table>
           </div>
         )}
 
-        <div className="mt-4 overflow-x-auto">
+        <div className={regularizationListMode === 'probation' ? 'hidden' : 'mt-4 overflow-x-auto'}>
           <Table>
             <TableHeader>
               <TableRow>
