@@ -163,8 +163,16 @@ function buildMissingPunchReminders(
   return reminders.sort((a, b) => b.date.localeCompare(a.date));
 }
 
-// ===== 试用期 / 转正状态（试用期统一 1 个月，到期后员工在「转正申请」提交） =====
+// ===== 试用期 / 转正状态（仅办公室岗位，试用期统一 1 个月） =====
 const PROBATION_MONTHS = 1;
+
+/** 办公室 / 车间判定：优先看 location，其次看部门名称 */
+function isOfficeEmployee(employee: { location?: string | null; department?: string | null }) {
+  const location = String(employee.location || '').trim();
+  if (location) return location === '办公室';
+  const department = String(employee.department || '');
+  return !/生产|车间|产线|流水/.test(department);
+}
 
 function chinaTodayStr() {
   const now = new Date(Date.now() + 8 * 60 * 60 * 1000);
@@ -190,7 +198,12 @@ export function computeProbation(employee: {
   name?: string | null;
   hire_date?: string | null;
   status?: string | null;
+  location?: string | null;
+  department?: string | null;
 }) {
+  // 只有办公室岗位走试用期；车间（生产）不显示也不提醒
+  if (!isOfficeEmployee(employee)) return null;
+
   const hireDate = String(employee.hire_date || '').slice(0, 10);
   if (!hireDate) return null;
 
@@ -317,7 +330,7 @@ export async function GET(request: NextRequest) {
       const response = NextResponse.json({
         success: true,
         employee: { ...employeeLite, id_card: maskIdCard(employee.id_card), wxBound: Boolean((employee as { wx_openid?: string | null }).wx_openid), isSelfServiceManager: Boolean(managerAssignment), selfServiceManagerLocation: managerAssignment?.location },
-        probation: computeProbation(employee as { id?: number; name?: string; hire_date?: string; status?: string }),
+        probation: computeProbation(employee as { id?: number; name?: string; hire_date?: string; status?: string; location?: string; department?: string }),
         salaryRecords,
         attendanceRecords: [],
         leaveRecords: [],
@@ -630,7 +643,7 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.json({
       success: true, 
       employee: { ...employee, id_card: maskIdCard(employee.id_card), wxBound: Boolean((employee as { wx_openid?: string | null }).wx_openid), isSelfServiceManager: Boolean(managerAssignment), selfServiceManagerLocation: managerAssignment?.location },
-      probation: computeProbation(employee as { id?: number; name?: string; hire_date?: string; status?: string }),
+      probation: computeProbation(employee as { id?: number; name?: string; hire_date?: string; status?: string; location?: string; department?: string }),
       workRecords: [],
       salaryRecords: salaryRecordsWithDept,
       monthlyRecords: salaryRecordsWithDept,

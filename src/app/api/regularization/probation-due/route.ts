@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { verifyToken } from '@/lib/auth';
 
-/** 试用期统一 1 个月；提前 20 天提醒 HR */
+/** 试用期统一 1 个月；提前 20 天提醒 HR（仅办公室岗位） */
 const PROBATION_MONTHS = 1;
 const REMIND_DAYS = 20;
+
+/** 办公室 / 车间判定：优先 location，其次部门名称 */
+function isOfficeEmployee(employee: { location?: string | null; department?: string | null }) {
+  const location = String(employee.location || '').trim();
+  if (location) return location === '办公室';
+  const department = String(employee.department || '');
+  return !/生产|车间|产线|流水/.test(department);
+}
 
 function chinaToday() {
   return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -32,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     const today = chinaToday();
     const employees = db.prepare(`
-      SELECT id, name, department, position, hire_date
+      SELECT id, name, department, position, hire_date, location
       FROM employees
       WHERE COALESCE(status, '在职') NOT IN ('离职', '已离职')
         AND hire_date IS NOT NULL AND TRIM(hire_date) <> ''
@@ -43,9 +51,11 @@ export async function GET(request: NextRequest) {
       department: string | null;
       position: string | null;
       hire_date: string;
+      location: string | null;
     }>;
 
     const all = employees
+      .filter((employee) => isOfficeEmployee(employee))
       .map((employee) => {
         const hireDate = String(employee.hire_date).slice(0, 10);
         const probationEnd = addMonths(hireDate, PROBATION_MONTHS);
