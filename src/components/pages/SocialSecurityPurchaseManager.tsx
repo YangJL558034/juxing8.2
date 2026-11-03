@@ -437,13 +437,15 @@ export default function SocialSecurityPurchaseManager() {
         <div>
           <button
             type="button"
-            className="flex items-center gap-2 text-sm font-semibold text-slate-950"
+            className="flex items-center gap-2 text-left text-sm font-semibold text-slate-950"
             onClick={() => setExpanded((value) => !value)}
           >
-            <span className={`inline-block transition-transform ${expanded ? 'rotate-90' : ''}`}>▸</span>
+            <span className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-normal text-slate-700 hover:bg-slate-50">
+              {expanded ? '收起 ▴' : '展开 ▾'}
+            </span>
             <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
             购买社保
-            <span className="ml-1 text-xs font-normal text-slate-500">
+            <span className="ml-1 text-xs font-normal text-slate-600">
               已购买 {visibleRecords.length} · 未购买 {agreementTotal}
             </span>
           </button>
@@ -710,16 +712,10 @@ export default function SocialSecurityPurchaseManager() {
               {!agreementsLoading && agreementGroups.map((group) => (
                 <TableRow key={`group-${group.key}`}>
                   <TableCell className="font-medium text-slate-900">
-                    <div className="space-y-1">
-                      {(['waiver', 'no_purchase'] as const).map((type) => {
-                        const label = type === 'waiver' ? '自愿放弃社保声明' : '要求不购买社保申请书';
-                        const has = type === 'waiver' ? group.hasWaiver : group.hasNoPurchase;
-                        return (
-                          <div key={type} className={has ? 'text-slate-900' : 'text-slate-300'}>
-                            {has ? '✓' : '○'} {label}
-                          </div>
-                        );
-                      })}
+                    <div className="space-y-1 text-slate-900">
+                      {group.hasWaiver && <div>✓ 自愿放弃社保声明</div>}
+                      {group.hasNoPurchase && <div>✓ 要求不购买社保申请书</div>}
+                      {!group.hasWaiver && !group.hasNoPurchase && <div>{group.purchaseRecord?.insuranceStatus || '放弃协议'}</div>}
                     </div>
                   </TableCell>
                   <TableCell>

@@ -160,6 +160,24 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
     });
   }, [records, categoryFilter]);
 
+  // 同一员工同一个月内的多份协议合并成一行显示
+  const displayRecords = useMemo(() => {
+    type Grouped = SocialSecurityRecord & { mergedDocs?: SocialSecurityRecord[] };
+    const map = new Map<string, Grouped>();
+    for (const record of visibleRecords) {
+      const key = `${record.idCard || record.name || record.id}|${String(record.createdAt || '').slice(0, 7)}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.mergedDocs = [...(existing.mergedDocs || [existing]), record];
+        // 有一条待审核就以待审核为准，方便直接点审核
+        if (record.status === '待审核') Object.assign(existing, { id: record.id, status: record.status, documentTitle: record.documentTitle });
+      } else {
+        map.set(key, { ...record });
+      }
+    }
+    return Array.from(map.values());
+  }, [visibleRecords]);
+
   const updateField = <K extends keyof SocialSecurityFormData>(field: K, value: SocialSecurityFormData[K]) => {
     setEditData((current) => ({ ...current, [field]: value }));
   };
@@ -419,7 +437,7 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
             </TableRow>
           </TableHeader>
           <YearMonthGroupedTableBody
-            records={visibleRecords}
+            records={displayRecords}
             loading={loading}
             colSpan={listMode === 'deleted' ? 14 : 13}
             loadingText="正在加载社保申请..."
@@ -427,7 +445,7 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
             getDate={(record) => record.createdAt}
             renderRow={(record) => (
               <TableRow key={record.id}>
-                <TableCell className="font-medium text-slate-900">{record.documentTitle}</TableCell>
+                <TableCell className="font-medium text-slate-900">{(record.mergedDocs && record.mergedDocs.length > 1 ? record.mergedDocs : [record]).map((doc) => (<div key={doc.id}>{doc.documentTitle}</div>))}</TableCell>
                 <TableCell>{display(record.name)}</TableCell>
                 <TableCell>{display(record.submittedBy)}</TableCell>
                 <TableCell>{formatDateTime(record.submittedAt)}</TableCell>
@@ -436,7 +454,7 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
                 <TableCell>{display(record.department)}</TableCell>
                 <TableCell>{display(record.position)}</TableCell>
                 <TableCell>{formatDate(record.hireDate)}</TableCell>
-                <TableCell>{record.deletedAt ? '已删除' : record.status}</TableCell>
+                <TableCell>{record.deletedAt ? '已删除' : (record.mergedDocs && record.mergedDocs.length > 1 ? record.mergedDocs.map((doc) => doc.status).join(' / ') : record.status)}</TableCell>
                 <TableCell>{display(record.reviewerName)}</TableCell>
                 <TableCell>{formatDateTime(record.reviewedAt)}</TableCell>
                 {listMode === 'deleted' && <TableCell>{formatDateTime(record.restoreUntil)}</TableCell>}
