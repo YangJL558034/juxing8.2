@@ -1,4 +1,4 @@
-export type RegularizationStatus = '待处理' | '已审核';
+export type RegularizationStatus = '待处理' | '已审核' | '已驳回';
 
 export interface RegularizationFormData {
   fillDate: string;

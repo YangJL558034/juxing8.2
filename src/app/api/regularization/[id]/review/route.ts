@@ -38,19 +38,36 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       ...body?.data,
     });
 
+    // approve（默认）| reject
+    const decision = body?.decision === 'reject' ? 'reject' : 'approve';
+    const rejectReason = String(body?.rejectReason || '').trim();
+    if (decision === 'reject' && !rejectReason) {
+      return NextResponse.json({ success: false, error: '请填写驳回原因' }, { status: 400 });
+    }
+
+    const reviewerName = String(body?.reviewerName || user.name || user.username || '').trim();
+    const nextStatus = decision === 'reject' ? '已驳回' : '已审核';
+    const payload: Record<string, unknown> = {
+      ...data,
+      reviewerName,
+      reviewResult: decision === 'reject' ? '已驳回' : '已通过',
+      rejectReason: decision === 'reject' ? rejectReason : '',
+      reviewedAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' '),
+    };
+
     db.prepare(`
       UPDATE regularization_records
-      SET status = '已审核',
+      SET status = ?,
           data_json = ?,
           updated_at = datetime('now', '+8 hours')
       WHERE id = ?
-    `).run(JSON.stringify(data), id);
+    `).run(nextStatus, JSON.stringify(payload), id);
 
     const updated = db.prepare('SELECT * FROM regularization_records WHERE id = ?').get(id) as RegularizationDbRow;
     return NextResponse.json({
       success: true,
       record: parseRegularizationRow(updated),
-      message: '转正申请审核完成',
+      message: decision === 'reject' ? '已驳回该转正申请' : '转正申请审核完成',
     });
   } catch (error) {
     console.error('Review regularization record error:', error);

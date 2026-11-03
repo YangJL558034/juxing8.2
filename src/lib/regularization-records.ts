@@ -86,7 +86,7 @@ export function parseRegularizationRow(row: RegularizationDbRow): Regularization
   const data = normalizeRegularizationData(parsed);
   return {
     id: row.id,
-    status: row.status === '已审核' ? '已审核' : '待处理',
+    status: row.status === '已审核' ? '已审核' : row.status === '已驳回' ? '已驳回' : '待处理',
     data,
     applicantName: row.applicant_name || data.applicantName,
     department: row.department || data.department,

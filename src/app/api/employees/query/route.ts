@@ -597,6 +597,9 @@ export async function GET(request: NextRequest) {
         hireDate: row.hire_date || '',
         regularizationDate: row.regularization_date || '',
         workSummary: pickJsonText(row.data_json, ['workSummary', 'summary']),
+        rejectReason: pickJsonText(row.data_json, ['rejectReason']),
+        reviewerName: pickJsonText(row.data_json, ['reviewerName']),
+        reviewedAt: pickJsonText(row.data_json, ['reviewedAt']),
       })),
       workCertificateRecords: workCertificateRows.map((row) => ({
         id: row.id,

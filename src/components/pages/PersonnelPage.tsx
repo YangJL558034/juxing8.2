@@ -91,6 +91,7 @@ interface RegularizationMutateResponse {
   success: boolean;
   record?: RegularizationRecord;
   error?: string;
+  message?: string;
 }
 
 interface WorkCertificateListResponse {
@@ -321,6 +322,7 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
   const [regularizationReviewOpen, setRegularizationReviewOpen] = useState(false);
   const [regularizationReviewTarget, setRegularizationReviewTarget] = useState<RegularizationRecord | null>(null);
   const [regularizationReviewData, setRegularizationReviewData] = useState<RegularizationFormData | null>(null);
+  const [regularizationRejectReason, setRegularizationRejectReason] = useState('');
   const [regularizationReviewing, setRegularizationReviewing] = useState(false);
   const [regularizationViewOpen, setRegularizationViewOpen] = useState(false);
   const [regularizationViewTarget, setRegularizationViewTarget] = useState<RegularizationRecord | null>(null);
@@ -434,7 +436,7 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
       setRegularizationRecords(nextRecords.filter((record) => {
         if (regularizationListMode === 'deleted') return true;
         if (regularizationListMode === 'pending') return record.status === '待处理';
-        return record.status === '已审核';
+        return record.status === '已审核' || record.status === '已驳回';
       }));
     } catch (fetchError) {
       setRegularizationError(fetchError instanceof Error ? fetchError.message : '获取转正申请列表失败');
@@ -780,6 +782,7 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
   const openRegularizationReview = (record: RegularizationRecord) => {
     setRegularizationReviewTarget(record);
     setRegularizationReviewData(JSON.parse(JSON.stringify(record.data)) as RegularizationFormData);
+    setRegularizationRejectReason('');
     setRegularizationReviewOpen(true);
   };
 
@@ -797,15 +800,23 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
     setRegularizationReviewData((current) => current ? { ...current, [field]: value } : current);
   };
 
-  const submitRegularizationReview = async () => {
+  const submitRegularizationReview = async (decision: 'approve' | 'reject' = 'approve') => {
     if (!regularizationReviewTarget || !regularizationReviewData) return;
+    if (decision === 'reject' && !regularizationRejectReason.trim()) {
+      alert('请填写驳回原因');
+      return;
+    }
 
     setRegularizationReviewing(true);
     try {
       const response = await fetch(`/api/regularization/${regularizationReviewTarget.id}/review`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: regularizationReviewData }),
+        body: JSON.stringify({
+          data: regularizationReviewData,
+          decision,
+          rejectReason: regularizationRejectReason.trim(),
+        }),
       });
       const result = await response.json().catch(() => ({})) as RegularizationMutateResponse;
       if (!response.ok || !result.success || !result.record) {
@@ -814,7 +825,9 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
       setRegularizationReviewOpen(false);
       setRegularizationReviewTarget(null);
       setRegularizationReviewData(null);
+      setRegularizationRejectReason('');
       await loadRegularizationRecords();
+      alert(result.message || '审核完成');
     } catch (reviewError) {
       alert(reviewError instanceof Error ? reviewError.message : '审核转正申请失败');
     } finally {
@@ -1710,6 +1723,8 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
                     <TableCell>
                       {['待处理', '待审核'].includes(item.appliedStatus) ? (
                         <span className="text-amber-600">已提交待审核</span>
+                      ) : item.appliedStatus === '已驳回' ? (
+                        <span className="text-red-600">已驳回 · 可重新提交</span>
                       ) : (
                         <span className="text-slate-400">未提交</span>
                       )}
@@ -2728,11 +2743,35 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
               </div>
             </div>
           )}
+
+          {/* 驳回原因（驳回时必填） */}
+          <div className="mt-3 space-y-1.5 rounded-md border border-red-100 bg-red-50/60 px-3 py-3">
+            <label className="text-sm font-medium text-slate-700">
+              驳回原因<span className="text-red-500">（点「驳回」时必填）</span>
+            </label>
+            <Textarea
+              value={regularizationRejectReason}
+              onChange={(event) => setRegularizationRejectReason(event.target.value)}
+              placeholder="例如：试用期工作小结不完整，请补充后重新提交"
+              className="min-h-20 bg-white"
+            />
+            <p className="text-xs text-slate-500">驳回后员工在小程序/移动端能看到这条原因，并可重新提交。</p>
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setRegularizationReviewOpen(false)} disabled={regularizationReviewing}>
               取消
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700" onClick={submitRegularizationReview} disabled={regularizationReviewing}>
+            <Button
+              variant="outline"
+              className="border-red-200 text-red-600 hover:bg-red-50"
+              onClick={() => void submitRegularizationReview('reject')}
+              disabled={regularizationReviewing}
+            >
+              {regularizationReviewing && <Loader2 className="h-4 w-4 animate-spin" />}
+              驳回
+            </Button>
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => void submitRegularizationReview('approve')} disabled={regularizationReviewing}>
               {regularizationReviewing && <Loader2 className="h-4 w-4 animate-spin" />}
               完成审核
             </Button>
