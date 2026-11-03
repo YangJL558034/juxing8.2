@@ -163,6 +163,82 @@ function buildMissingPunchReminders(
   return reminders.sort((a, b) => b.date.localeCompare(a.date));
 }
 
+// ===== 试用期 / 转正状态（试用期统一 1 个月，到期后员工在「转正申请」提交） =====
+const PROBATION_MONTHS = 1;
+
+function chinaTodayStr() {
+  const now = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  return now.toISOString().slice(0, 10);
+}
+
+function addMonths(dateStr: string, months: number) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  const base = new Date(Date.UTC(y, m - 1 + months, d));
+  return base.toISOString().slice(0, 10);
+}
+
+function daysBetween(from: string, to: string) {
+  const a = Date.parse(`${from}T00:00:00+08:00`);
+  const b = Date.parse(`${to}T00:00:00+08:00`);
+  if (Number.isNaN(a) || Number.isNaN(b)) return 0;
+  return Math.round((b - a) / 86400000);
+}
+
+export function computeProbation(employee: {
+  id?: number | null;
+  name?: string | null;
+  hire_date?: string | null;
+  status?: string | null;
+}) {
+  const hireDate = String(employee.hire_date || '').slice(0, 10);
+  if (!hireDate) return null;
+
+  const resigned = ['离职', '已离职'].includes(String(employee.status || ''));
+
+  // 已审核的转正记录优先（有记录就是已转正）
+  let regularDate = '';
+  try {
+    const row = db.prepare(`
+      SELECT regularization_date FROM regularization_records
+      WHERE deleted_at IS NULL AND status = '已审核'
+        AND (employee_id = ? OR (? IS NOT NULL AND applicant_name = ?))
+      ORDER BY regularization_date DESC, id DESC LIMIT 1
+    `).get(employee.id ?? null, employee.name ?? null, employee.name ?? null) as
+      | { regularization_date: string | null }
+      | undefined;
+    regularDate = String(row?.regularization_date || '').slice(0, 10);
+  } catch (error) {
+    console.error('computeProbation regularization lookup error:', error);
+  }
+
+  const probationEnd = addMonths(hireDate, PROBATION_MONTHS);
+  const today = chinaTodayStr();
+  const daysLeft = probationEnd ? daysBetween(today, probationEnd) : 0;
+
+  if (regularDate) {
+    return {
+      status: 'regular' as const,
+      hireDate,
+      probationMonths: PROBATION_MONTHS,
+      probationEnd,
+      regularDate,
+      daysLeft: 0,
+      resigning: resigned,
+    };
+  }
+
+  return {
+    status: daysLeft < 0 ? ('expired' as const) : ('probation' as const),
+    hireDate,
+    probationMonths: PROBATION_MONTHS,
+    probationEnd,
+    regularDate: '',
+    daysLeft,
+    resigning: resigned,
+  };
+}
+
 // 员工查询（免登录，通过姓名+身份证验证）
 export async function GET(request: NextRequest) {
   try {
@@ -241,6 +317,7 @@ export async function GET(request: NextRequest) {
       const response = NextResponse.json({
         success: true,
         employee: { ...employeeLite, id_card: maskIdCard(employee.id_card), wxBound: Boolean((employee as { wx_openid?: string | null }).wx_openid), isSelfServiceManager: Boolean(managerAssignment), selfServiceManagerLocation: managerAssignment?.location },
+        probation: computeProbation(employee as { id?: number; name?: string; hire_date?: string; status?: string }),
         salaryRecords,
         attendanceRecords: [],
         leaveRecords: [],
@@ -553,6 +630,7 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.json({
       success: true, 
       employee: { ...employee, id_card: maskIdCard(employee.id_card), wxBound: Boolean((employee as { wx_openid?: string | null }).wx_openid), isSelfServiceManager: Boolean(managerAssignment), selfServiceManagerLocation: managerAssignment?.location },
+      probation: computeProbation(employee as { id?: number; name?: string; hire_date?: string; status?: string }),
       workRecords: [],
       salaryRecords: salaryRecordsWithDept,
       monthlyRecords: salaryRecordsWithDept,

@@ -293,6 +293,9 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
   const [records, setRecords] = useState<OnboardingRecord[]>([]);
   const [counts, setCounts] = useState<OnboardingCounts>(emptyCounts);
   const [regularizationRecords, setRegularizationRecords] = useState<RegularizationRecord[]>([]);
+  // 试用期提醒（20 天内到期 / 已超期未登记）
+  const [probationDueSoon, setProbationDueSoon] = useState<Array<{ employeeId: number; name: string; department: string; probationEnd: string; daysLeft: number }>>([]);
+  const [probationOverdue, setProbationOverdue] = useState<Array<{ employeeId: number; name: string; department: string; probationEnd: string; daysLeft: number }>>([]);
   const [regularizationLoading, setRegularizationLoading] = useState(false);
   const [regularizationError, setRegularizationError] = useState('');
   const [regularizationListMode, setRegularizationListMode] = useState<'pending' | 'reviewed' | 'deleted'>('pending');
@@ -421,6 +424,23 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
   useEffect(() => {
     void loadRegularizationRecords();
   }, [loadRegularizationRecords]);
+
+  // 试用期 20 天内到期提醒
+  useEffect(() => {
+    const loadProbationDue = async () => {
+      try {
+        const res = await fetch('/api/regularization/probation-due', { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (data.success) {
+          setProbationDueSoon(data.dueSoon || []);
+          setProbationOverdue(data.overdue || []);
+        }
+      } catch (error) {
+        console.error('Load probation due error:', error);
+      }
+    };
+    void loadProbationDue();
+  }, []);
 
   const loadWorkCertificateRecords = useCallback(async () => {
     setWorkCertificateLoading(true);
@@ -1579,6 +1599,31 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
         {regularizationError && (
           <div className="mt-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
             {regularizationError}
+          </div>
+        )}
+
+        {/* 试用期提醒：提前 20 天 */}
+        {(probationDueSoon.length > 0 || probationOverdue.length > 0) && (
+          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm">
+            <div className="font-medium text-amber-800">
+              试用期提醒（提前 20 天）
+            </div>
+            {probationDueSoon.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {probationDueSoon.map((item) => (
+                  <span key={item.employeeId} className="rounded-full bg-white px-3 py-1 text-xs text-amber-800 ring-1 ring-amber-200">
+                    {item.name}（{item.department || '-'}）剩 {item.daysLeft} 天 · {item.probationEnd}
+                  </span>
+                ))}
+              </div>
+            )}
+            {probationOverdue.length > 0 && (
+              <div className="mt-2 text-xs text-amber-700">
+                另有 {probationOverdue.length} 人试用期已过但未提交转正申请：
+                {probationOverdue.slice(0, 8).map((item) => `${item.name}(${item.department || '-'})`).join('、')}
+                {probationOverdue.length > 8 ? ' 等' : ''}
+              </div>
+            )}
           </div>
         )}
 
