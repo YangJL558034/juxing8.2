@@ -221,7 +221,7 @@ function DetailGrid({ pairs }: { pairs: Array<[string, string | number | null | 
     <div className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
       {pairs.map(([label, value]) => (
         <div key={label} className="grid grid-cols-[92px_minmax(0,1fr)] gap-2">
-          <span className="text-slate-500">{label}:</span>
+          <span className="text-slate-500 font-medium">{label}:</span>
           <span className="break-all text-slate-800">{display(value)}</span>
         </div>
       ))}
@@ -231,7 +231,7 @@ function DetailGrid({ pairs }: { pairs: Array<[string, string | number | null | 
 
 function StatusBadge({ status }: { status: OnboardingStatus }) {
   return (
-    <span className={cn('inline-flex rounded-md px-2 py-1 text-xs font-medium ring-1', statusTone[status])}>
+    <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1', statusTone[status])}>
       {status}
     </span>
   );
@@ -1218,7 +1218,7 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
 
       {section === 'onboarding' && (
       <>
-      <div className="mb-4 rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_150px_160px_160px_auto] md:items-end">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">姓名 / 手机号 / 身份证号</label>
@@ -1306,10 +1306,10 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="mt-1 overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50/80">
+                  <TableRow className="bg-slate-50">
                     <TableHead className="w-14">序号</TableHead>
                     <TableHead>姓名</TableHead>
                     <TableHead>性别</TableHead>
