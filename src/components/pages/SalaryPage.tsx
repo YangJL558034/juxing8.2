@@ -1532,7 +1532,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
               ) : (
                 <div className="space-y-4">
                   {/* 在职员工 */}
-                  <div className="border rounded-lg">
+                  <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
                     <div className="bg-green-50 px-4 py-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-green-500"></div>
@@ -1624,7 +1624,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                   </div>
                   
                   {/* 离职员工 */}
-                  <div className="border rounded-lg">
+                  <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
                     <div className="bg-red-50 px-4 py-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-red-500"></div>
@@ -2275,7 +2275,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                       const hasRecords = dailyWorkHours.some(d => d.times.length > 0);
 
                       return (
-                        <AccordionItem key={emp.id} value={`emp-${emp.id}`} className="border rounded-lg mb-2">
+                        <AccordionItem key={emp.id} value={`emp-${emp.id}`} className="mb-2 rounded-xl border border-slate-200 bg-white shadow-sm">
                           <AccordionTrigger className="px-4 py-3 hover:no-underline">
                             <div className="flex justify-between items-center w-full pr-4">
                               <div className="flex items-center gap-3">
@@ -2469,7 +2469,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                 
                 return (
                   <div className="overflow-x-auto">
-                    <table className="border-collapse border border-gray-300 text-xs min-w-max">
+                    <table className="border-collapse border border-slate-200 text-xs min-w-max">
                       <thead>
                         <tr className="bg-blue-500 text-white">
                           <th className="sticky left-0 z-20 min-w-20 border border-gray-300 bg-blue-600 p-2 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.45)]">姓名</th>
