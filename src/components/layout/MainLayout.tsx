@@ -68,7 +68,6 @@ const pageNames: Record<string, string> = {
   personnel: '人事管理',
   'personnel-onboarding': '入职登记',
   'personnel-social-security': '社保管理',
-  'personnel-social-security-purchase': '购买社保',
   'personnel-regularization': '转正申请',
   'personnel-work-certificate': '工作证明',
   'personnel-resignation': '离职申请',
@@ -99,7 +98,6 @@ const pagePermissionMap: Record<string, string> = {
   personnel: 'personnel',
   'personnel-onboarding': 'personnel',
   'personnel-social-security': 'personnel',
-  'personnel-social-security-purchase': 'personnel',
   'personnel-regularization': 'personnel',
   'personnel-work-certificate': 'personnel',
   'personnel-resignation': 'personnel',
@@ -126,7 +124,6 @@ const pagePermissionMap: Record<string, string> = {
 const personnelSectionMap: Record<string, { section: PersonnelSectionKey; label: string }> = {
   'personnel-onboarding': { section: 'onboarding', label: '入职登记' },
   'personnel-social-security': { section: 'social-security', label: '社保管理' },
-  'personnel-social-security-purchase': { section: 'social-security-purchase', label: '购买社保' },
   'personnel-regularization': { section: 'regularization', label: '转正申请' },
   'personnel-work-certificate': { section: 'work-certificate', label: '工作证明' },
   'personnel-resignation': { section: 'resignation', label: '离职申请' },

@@ -118,6 +118,8 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
   const [saving, setSaving] = useState(false);
   // 在职 / 已离职
   const [employment, setEmployment] = useState<'active' | 'resigned'>('active');
+  // 合并视图：一次只显示一块
+  const [pageTab, setPageTab] = useState<'purchase' | 'declaration'>('purchase');
   // 新建申请（购买 / 不购买社保）
   const [createOpen, setCreateOpen] = useState(false);
   const [createData, setCreateData] = useState<SocialSecurityFormData>(() => createDefaultSocialSecurityData('no_purchase'));
@@ -315,8 +317,28 @@ export default function SocialSecurityAdminSection({ mode = 'all' }: { mode?: So
   return (
     <>
     {/* 合并视图：购买社保放最上面，社保声明/申请放下面 */}
-    {mode === 'all' && <SocialSecurityPurchaseManager />}
-    {mode !== 'purchase' && (
+    {mode === 'all' && (
+      <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-white p-3 shadow-sm">
+        <Button
+          size="sm"
+          variant={pageTab === 'purchase' ? 'default' : 'outline'}
+          className={pageTab === 'purchase' ? 'bg-slate-950 hover:bg-slate-800' : ''}
+          onClick={() => setPageTab('purchase')}
+        >
+          购买 / 不购买社保
+        </Button>
+        <Button
+          size="sm"
+          variant={pageTab === 'declaration' ? 'default' : 'outline'}
+          className={pageTab === 'declaration' ? 'bg-slate-950 hover:bg-slate-800' : ''}
+          onClick={() => setPageTab('declaration')}
+        >
+          社保声明记录
+        </Button>
+      </div>
+    )}
+    {mode === 'all' && pageTab === 'purchase' && <SocialSecurityPurchaseManager />}
+    {mode !== 'purchase' && (mode !== 'all' || pageTab === 'declaration') && (
     <div id="social-security-management" className="scroll-mt-24 mt-4 rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div>

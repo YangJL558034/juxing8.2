@@ -382,8 +382,7 @@ export const navMenuItems: NavMenuItem[] = [
         children: [
           { key: 'personnel-onboarding', label: '入职登记', icon: 'Users' },
           { key: 'personnel-social-security', label: '社保管理', icon: 'Shield' },
-          { key: 'personnel-social-security-purchase', label: '购买社保', icon: 'Shield' },
-          { key: 'personnel-regularization', label: '转正申请', icon: 'CheckCircle' },
+                  { key: 'personnel-regularization', label: '转正申请', icon: 'CheckCircle' },
           { key: 'personnel-work-certificate', label: '工作证明', icon: 'FileText' },
           { key: 'personnel-resignation', label: '离职申请', icon: 'FileText' },
           { key: 'personnel-resignation-certificate', label: '离职证明', icon: 'FileText' },
