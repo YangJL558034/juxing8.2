@@ -115,6 +115,10 @@ export async function POST(request: NextRequest) {
       recordId = Number(result.lastInsertRowid);
     }
 
+    // 小程序提交的购买申请进入待审核
+    db.prepare("UPDATE social_security_purchase_records SET review_status = ? WHERE id = ?")
+      .run("\u5f85\u5ba1\u6838", recordId);
+
     return NextResponse.json({
       success: true,
       id: recordId,
