@@ -36,7 +36,41 @@ export async function GET(request: NextRequest) {
         ORDER BY created_at DESC, id DESC
       `).all(employee.name, employee.id_card || '') as SocialSecurityDbRow[];
       const ownRecords = ownRows.map(parseSocialSecurityRow);
-      return NextResponse.json({ success: true, records: ownRecords, data: ownRecords, selfOnly: true });
+
+      // 购买社保台账（后台录入或导入），员工端据此判断「已购买社保」
+      let purchase: {
+        exists: boolean;
+        insuranceStatus: string;
+        contractStartDate: string;
+        contractEndDate: string;
+        employmentStatus: string;
+      } = { exists: false, insuranceStatus: '', contractStartDate: '', contractEndDate: '', employmentStatus: '' };
+      try {
+        // 只按姓名匹配本人员工，避免身份证号重复时串到别人的记录
+        const row = db.prepare(`
+          SELECT insurance_status, contract_start_date, contract_end_date, employment_status
+          FROM social_security_purchase_records
+          WHERE deleted_at IS NULL AND employee_name = ?
+          ORDER BY id DESC
+          LIMIT 1
+        `).get(employee.name) as
+          | { insurance_status: string | null; contract_start_date: string | null; contract_end_date: string | null; employment_status: string | null }
+          | undefined;
+        if (row) {
+          const waiverLike = /放弃|不购买|不买|弃保/.test(String(row.insurance_status || ''));
+          purchase = {
+            exists: !waiverLike,
+            insuranceStatus: String(row.insurance_status || ''),
+            contractStartDate: String(row.contract_start_date || ''),
+            contractEndDate: String(row.contract_end_date || ''),
+            employmentStatus: String(row.employment_status || ''),
+          };
+        }
+      } catch (error) {
+        console.error('Load employee purchase record error:', error);
+      }
+
+      return NextResponse.json({ success: true, records: ownRecords, data: ownRecords, purchase, selfOnly: true });
     }
 
     const { searchParams } = new URL(request.url);
