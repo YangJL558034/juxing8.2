@@ -318,6 +318,31 @@ export default function SocialSecurityPurchaseManager() {
     setTimeout(() => void loadRecords(), 800);
   };
 
+  // 购买社保审核：通过 / 驳回（驳回填原因）
+  const reviewPurchase = async (record: SocialSecurityPurchaseRecord, decision: 'approve' | 'reject') => {
+    let remark = '';
+    if (decision === 'reject') {
+      const input = window.prompt('请填写驳回原因（员工可修改后重新提交）', '');
+      if (input === null) return;
+      if (!input.trim()) { alert('请填写驳回原因'); return; }
+      remark = input.trim();
+    } else if (!confirm(`确定通过 ${record.employeeName} 的购买社保申请吗？`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/social-security/purchase/${record.id}/review`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, remark }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || '审核失败');
+      await loadRecords();
+      alert(data.message || '审核完成');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '审核失败');
+    }
+  };
   const exportAgreement = (record: SocialSecurityRecord) => {
     window.open(`/api/social-security/${record.id}/export`, '_blank', 'noopener,noreferrer');
     setTimeout(() => void loadAgreements(), 800);
@@ -553,6 +578,16 @@ export default function SocialSecurityPurchaseManager() {
         </div>
       )}
 
+      {/* 待审核数量提示 */}
+      {(() => {
+        const pending = records.filter((r) => String((r as { reviewStatus?: string }).reviewStatus || '') === '待审核').length;
+        return pending > 0 ? (
+          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            有 {pending} 条购买社保申请待审核，请在下方列表点「审核通过」或「驳回」。
+          </div>
+        ) : null;
+      })()}
+
       {/* 已购买 / 未购买 分开显示 */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button
@@ -627,7 +662,20 @@ export default function SocialSecurityPurchaseManager() {
                 <TableCell>{display(record.insuranceStatus)}</TableCell>
                 <TableCell>{display(record.contractStartDate)}</TableCell>
                 <TableCell>{display(record.contractEndDate)}</TableCell>
-                <TableCell>{record.deletedAt ? '已删除' : display(record.employmentStatus || (listMode === 'resigned' ? '离职' : '在职'))}</TableCell>
+                <TableCell>
+                  {record.deletedAt ? '已删除' : (
+                    <div className="space-y-1">
+                      <div>{display(record.employmentStatus || (listMode === 'resigned' ? '离职' : '在职'))}</div>
+                      {(() => {
+                        const review = String((record as { reviewStatus?: string }).reviewStatus || '已通过');
+                        const tone = review === '待审核' ? 'bg-amber-50 text-amber-700'
+                          : review === '已驳回' ? 'bg-red-50 text-red-600'
+                          : 'bg-emerald-50 text-emerald-700';
+                        return <span className={`inline-block rounded px-2 py-0.5 text-xs ${tone}`}>{review}</span>;
+                      })()}
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell>{formatDateTime(record.exportedAt)}</TableCell>
                 {listMode === 'deleted' && <TableCell>{formatDateTime(record.restoreUntil)}</TableCell>}
                 <TableCell className="text-right">
@@ -647,6 +695,25 @@ export default function SocialSecurityPurchaseManager() {
                           <Pencil className="h-4 w-4" />
                           修改
                         </Button>
+                        {String((record as { reviewStatus?: string }).reviewStatus || '') === '待审核' && (
+                          <>
+                            <Button
+                              size="sm"
+                              className="bg-blue-600 hover:bg-blue-700"
+                              onClick={() => void reviewPurchase(record, 'approve')}
+                            >
+                              审核通过
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-200 text-red-600 hover:bg-red-50"
+                              onClick={() => void reviewPurchase(record, 'reject')}
+                            >
+                              驳回
+                            </Button>
+                          </>
+                        )}
                         <Button variant="outline" size="sm" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => deleteRecord(record)}>
                           <Trash2 className="h-4 w-4" />
                           删除
