@@ -2084,7 +2084,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
               </div>
 
               {/* 统计汇总 */}
-              <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+              <div className="mt-6 p-4 bg-slate-50 rounded-xl">
                 <h4 className="font-medium mb-3">月度汇总 ({searchYear}年{parseInt(searchMonth)}月 - {salaryLocation === 'office' ? '办公室' : '车间'})</h4>
                 <div className="grid grid-cols-4 gap-4 text-center">
                   <div>
@@ -2180,7 +2180,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
               </div>
 
               {/* 工时计算说明 */}
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
+              <div className="mb-4 p-3 bg-blue-50 rounded-xl text-sm text-blue-800">
                 <strong>工时计算规则：</strong>
                 正班 8:00-12:00 + 13:30-17:30 = 8小时 | 
                 午休 12:00-13:30 不计工时 | 
@@ -2414,7 +2414,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                 </div>
               </div>
 
-              <div className="mb-5 flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-blue-800">
+              <div className="mb-5 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-blue-800">
                 <UserCog className="h-5 w-5 shrink-0" />
                 <p className="text-sm font-medium">
                   操作提示：点击表格左侧的员工姓名，可设置该员工的上班、下班打卡时间范围。
@@ -2422,7 +2422,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
               </div>
 
               {attendanceMissingWarnings.length > 0 && (
-                <div className="mb-5 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mb-5 flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
                     <div>
@@ -2472,14 +2472,14 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                     <table className="border-collapse border border-slate-200 text-xs min-w-max">
                       <thead>
                         <tr className="bg-blue-500 text-white">
-                          <th className="sticky left-0 z-20 min-w-20 border border-gray-300 bg-blue-600 p-2 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.45)]">姓名</th>
-                          <th className="border border-gray-300 p-2 min-w-16 bg-blue-600">日期</th>
+                          <th className="sticky left-0 z-20 min-w-20 border border-slate-200 bg-blue-600 p-2 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.45)]">姓名</th>
+                          <th className="border border-slate-200 p-2 min-w-16 bg-blue-600">日期</th>
                           {Array.from({ length: daysInMonth }, (_, i) => {
                             const day = i + 1;
                             const date = new Date(year, month - 1, day);
                             const weekDay = weekDays[date.getDay()];
                             return (
-                              <th key={day} className="border border-gray-300 p-1 text-center min-w-16">
+                              <th key={day} className="border border-slate-200 p-1 text-center min-w-16">
                                 <div>{day}</div>
                                 <div className="text-xs font-normal opacity-80">周{weekDay}</div>
                               </th>
@@ -2492,7 +2492,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                           const details = parseAttendanceDetails(record);
                           return (
                             <tr key={record.id}>
-                              <td className="sticky left-0 z-10 min-w-20 whitespace-nowrap border border-gray-300 bg-yellow-100 p-2 text-center font-medium shadow-[4px_0_6px_-4px_rgba(15,23,42,0.28)]">
+                              <td className="sticky left-0 z-10 min-w-20 whitespace-nowrap border border-slate-200 bg-yellow-100 p-2 text-center font-medium shadow-[4px_0_6px_-4px_rgba(15,23,42,0.28)]">
                                 <button
                                   type="button"
                                   className="font-medium text-slate-900 underline decoration-dashed underline-offset-4 hover:text-blue-700"
@@ -2502,7 +2502,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                                   {record.employee_name}
                                 </button>
                               </td>
-                              <td className="border border-gray-300 p-2 bg-gray-50 text-center text-gray-400">
+                              <td className="border border-slate-200 p-2 bg-slate-50 text-center text-slate-400">
                                 {record.department || '-'}
                               </td>
                               {Array.from({ length: daysInMonth }, (_, i) => {
@@ -2541,7 +2541,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                                 return (
                                   <td 
                                     key={day} 
-                                    className={`border border-gray-300 p-1 text-center whitespace-pre-line text-xs cursor-pointer hover:bg-blue-50 transition-colors ${hasNote ? 'text-blue-600' : ''} ${hasLeave ? 'bg-rose-50 font-medium text-rose-600' : ''} ${hasMissingPunch ? 'bg-red-50 font-medium text-red-600 ring-1 ring-inset ring-red-300' : ''}`}
+                                    className={`border border-slate-200 p-1 text-center whitespace-pre-line text-xs cursor-pointer hover:bg-blue-50 transition-colors ${hasNote ? 'text-blue-600' : ''} ${hasLeave ? 'bg-rose-50 font-medium text-rose-600' : ''} ${hasMissingPunch ? 'bg-red-50 font-medium text-red-600 ring-1 ring-inset ring-red-300' : ''}`}
                                     onClick={() => openAttendanceEdit(record.employee_id, record.employee_name, year, month, day, times)}
                                     title={hasMissingPunch ? `需补卡：${missingWarning?.missingPeriods.map((period) => missingPunchLabel(period, missingWarning)).join('、')}` : hasLeave ? '已审核请假记录' : '点击编辑打卡记录'}
                                   >
@@ -2564,7 +2564,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
               })()}
 
               {/* 统计 */}
-              <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+              <div className="mt-6 p-4 bg-slate-50 rounded-xl">
                 <h4 className="font-medium mb-3">打卡统计 ({searchYear}年{searchMonth}月 - {attendanceLocation === 'office' ? '办公室' : '车间'})</h4>
                 <div className="grid grid-cols-4 gap-4 text-center">
                   <div>
@@ -2829,7 +2829,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
               <p className="text-sm text-blue-800 mb-2 font-medium">查询地址</p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 text-sm bg-white px-3 py-2 rounded border text-blue-600 break-all">
@@ -3153,7 +3153,7 @@ export default function SalaryPage({ section = 'salary' }: SalaryPageProps) {
                 正在导入...
               </div>
             )}
-            <div className="p-3 bg-muted/50 rounded-lg text-sm">
+            <div className="p-3 bg-slate-50 rounded-xl text-sm">
               <p className="font-medium mb-2">导入说明：</p>
               <ul className="space-y-1 text-muted-foreground list-disc list-inside">
                 <li>自动识别表头位置</li>
