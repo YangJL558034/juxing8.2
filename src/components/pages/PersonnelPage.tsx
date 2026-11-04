@@ -1888,7 +1888,7 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
       )}
 
       {section === 'work-certificate' && (
-      <div id="personnel-work-certificate-section" className="scroll-mt-24 mt-4 rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
+      <div id="personnel-work-certificate-section" className="scroll-mt-24 mt-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
@@ -1960,7 +1960,7 @@ export default function PersonnelPage({ section = 'onboarding' }: { section?: Pe
                   : '暂无已删除工作证明申请'}
               getDate={(record) => record.createdAt}
               renderRow={(record) => (
-                <TableRow key={record.id}>
+                <TableRow key={record.id} className="transition-colors hover:bg-slate-50">
                   <TableCell className="font-medium text-slate-900">{display(record.name)}</TableCell>
                   <TableCell>{display(record.gender)}</TableCell>
                   <TableCell>{display(record.idCard)}</TableCell>
