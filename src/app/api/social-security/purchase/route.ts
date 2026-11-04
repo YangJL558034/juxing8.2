@@ -133,6 +133,8 @@ export async function GET(request: NextRequest) {
       return {
         ...record,
         employmentStatus: resigned ? '离职' : (record.employmentStatus || '在职'),
+        reviewStatus: String((row as unknown as { review_status?: string | null }).review_status || '已通过'),
+        reviewRemark: String((row as unknown as { review_remark?: string | null }).review_remark || ''),
         resignedFromArchive: resigned,
       };
     });
