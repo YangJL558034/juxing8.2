@@ -178,7 +178,7 @@ export default function SocialSecurityPurchaseManager() {
   const [importCategory, setImportCategory] = useState<SocialSecurityPurchaseCategory>('management');
   const [listMode, setListMode] = useState<ListMode>('active');
   // 已购买 / 未购买 分开显示
-  const [purchaseView, setPurchaseView] = useState<'bought' | 'notBought'>('bought');
+  const [purchaseView, setPurchaseView] = useState<'bought' | 'notBought' | 'pending'>('bought');
   // 折叠状态：默认收起，点标题展开
   const [expanded, setExpanded] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
@@ -371,7 +371,9 @@ export default function SocialSecurityPurchaseManager() {
   };
 
   const agreementPurchaseRecords = records.filter(isAgreementPurchaseRecord);
-  const visibleRecords = records.filter((record) => !isAgreementPurchaseRecord(record));
+  const nonAgreementRecords = records.filter((record) => !isAgreementPurchaseRecord(record));
+  const pendingRecords = nonAgreementRecords.filter((record) => String((record as { reviewStatus?: string }).reviewStatus || '') === '待审核');
+  const visibleRecords = nonAgreementRecords.filter((record) => String((record as { reviewStatus?: string }).reviewStatus || '') !== '待审核');
   const visibleAgreements = agreements.filter((record) => resolveAgreementCategory(record.department) === categoryFilter);
   const agreementTotal = visibleAgreements.length + agreementPurchaseRecords.length;
 
@@ -609,6 +611,61 @@ export default function SocialSecurityPurchaseManager() {
           未购买社保 {agreementTotal}
         </Button>
       </div>
+
+      {purchaseView === 'pending' && (
+        <div className="mt-4 overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>分类</TableHead>
+                <TableHead>员工</TableHead>
+                <TableHead>身份证号</TableHead>
+                <TableHead>手机号</TableHead>
+                <TableHead>部门</TableHead>
+                <TableHead>参保城市</TableHead>
+                <TableHead>提交时间</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead className="text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pendingRecords.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="h-24 text-center text-sm text-slate-500">
+                    暂无待审核的购买社保申请
+                  </TableCell>
+                </TableRow>
+              )}
+              {pendingRecords.map((record) => (
+                <TableRow key={`pending-${record.id}`}>
+                  <TableCell className="font-medium text-slate-900">{record.categoryLabel}</TableCell>
+                  <TableCell>{display(record.employeeName)}</TableCell>
+                  <TableCell>{display(record.idCard)}</TableCell>
+                  <TableCell>{display(record.phone)}</TableCell>
+                  <TableCell>{display(record.department)}</TableCell>
+                  <TableCell>{display(record.domicile)}</TableCell>
+                  <TableCell>{formatDateTime(record.createdAt)}</TableCell>
+                  <TableCell><span className="rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-700">待审核</span></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => openView(record)}>
+                        <Eye className="h-4 w-4" />
+                        查看
+                      </Button>
+                      <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => void reviewPurchase(record, 'approve')}>
+                        审核通过
+                      </Button>
+                      <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => void reviewPurchase(record, 'reject')}>
+                        驳回
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {purchaseView === 'bought' && (
       <div className="mt-4 overflow-x-auto">
