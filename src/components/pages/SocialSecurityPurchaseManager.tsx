@@ -610,6 +610,15 @@ export default function SocialSecurityPurchaseManager() {
         >
           未购买社保 {agreementTotal}
         </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={purchaseView === 'pending' ? 'default' : 'outline'}
+          className={purchaseView === 'pending' ? 'bg-amber-500 hover:bg-amber-600' : ''}
+          onClick={() => setPurchaseView('pending')}
+        >
+          待审核 {pendingRecords.length}
+        </Button>
       </div>
 
       {purchaseView === 'pending' && (
