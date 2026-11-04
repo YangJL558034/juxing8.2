@@ -162,6 +162,8 @@ export function parseSocialSecurityPurchaseRow(row: SocialSecurityPurchaseDbRow)
     contractEndDate: row.contract_end_date,
     dueDays: row.due_days,
     employmentStatus: row.employment_status,
+    reviewStatus: (row as unknown as { review_status?: string | null }).review_status || '已通过',
+    reviewRemark: (row as unknown as { review_remark?: string | null }).review_remark || '',
     resignationDate: row.resignation_date,
     confidentialityAgreement: row.confidentiality_agreement,
     probationSalary: row.probation_salary,

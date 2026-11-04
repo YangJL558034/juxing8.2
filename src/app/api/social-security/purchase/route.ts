@@ -99,6 +99,10 @@ export async function GET(request: NextRequest) {
     } else if (!deleted && employment === 'active') {
       where.push(`NOT ${resignedWhere}`);
     }
+    // review=pending 只返回待审核
+    if (searchParams.get('review') === 'pending') {
+      where.push("COALESCE(review_status, '\u5df2\u901a\u8fc7') = '\u5f85\u5ba1\u6838'");
+    }
     if (keyword) {
       where.push('(employee_name LIKE ? OR id_card LIKE ? OR phone LIKE ? OR department LIKE ? OR insurance_status LIKE ?)');
       params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
