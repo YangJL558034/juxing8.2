@@ -133,6 +133,36 @@ export function disableAccount(employeeId: number, reason: string) {
   } catch (error) {
     console.error('disableAccount revoke sessions error:', error);
   }
+  notifyDisabled(employeeId, reason);
+}
+
+/** 停用后给员工发一条站内通知，员工在「通知」里能看到原因 */
+function notifyDisabled(employeeId: number, reason: string) {
+  try {
+    const emp = db.prepare('SELECT name FROM employees WHERE id = ?').get(employeeId) as { name: string } | undefined;
+    if (!emp) return;
+    db.exec(`CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT, content TEXT, sender_id INTEGER, sender_name TEXT,
+      receiver_id INTEGER, receiver_name TEXT, type TEXT,
+      is_read INTEGER DEFAULT 0, read_at DATETIME,
+      email_sent INTEGER DEFAULT 0, email_error TEXT,
+      attachment_file TEXT, attachment_file_name TEXT,
+      created_at TEXT, employee_recipient_id INTEGER
+    )`);
+    db.prepare(`
+      INSERT INTO notifications (title, content, sender_name, receiver_name, type, created_at, employee_recipient_id)
+      VALUES (?, ?, ?, ?, 'system', datetime('now', '+8 hours'), ?)
+    `).run(
+      '账号已被停用',
+      `您的员工账号已被管理员停用${reason ? '，原因：' + reason : ''}。如需恢复请联系人事部门。`,
+      '人事部门',
+      emp.name,
+      employeeId,
+    );
+  } catch (error) {
+    console.error('notifyDisabled error:', error);
+  }
 }
 
 /** 管理员启用账号：清除停用与冻结标记 */
@@ -149,7 +179,7 @@ export function enableAccount(employeeId: number) {
 }
 
 /** 列出员工账号状态（供后台管理） */
-export function listAccountStatuses(params: { keyword?: string; state?: string; limit?: number }) {
+export function listAccountStatuses(params: { keyword?: string; state?: string; limit?: number; location?: string }) {
   ensureAccountFreezeColumn();
   const keyword = String(params.keyword || '').trim();
   const where: string[] = [];
@@ -183,5 +213,14 @@ export function listAccountStatuses(params: { keyword?: string; state?: string; 
       disabledAt: row.account_disabled_at ? String(row.account_disabled_at) : null,
       frozenAt: info.frozenAt,
     };
-  }).filter((row) => (params.state ? row.accountState === params.state : true));
+  }).filter((row) => {
+    if (params.state && row.accountState !== params.state) return false;
+    if (params.location) {
+      const dept = String(row.department || '');
+      const isWorkshop = /生产|车间|产线|流水/.test(dept) || !dept.trim();
+      if (params.location === 'workshop' && !isWorkshop) return false;
+      if (params.location === 'office' && isWorkshop) return false;
+    }
+    return true;
+  });
 }

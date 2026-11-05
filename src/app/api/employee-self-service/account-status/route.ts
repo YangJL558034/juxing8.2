@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const records = listAccountStatuses({
       keyword: searchParams.get('keyword') || '',
       state: searchParams.get('state') || '',
+      location: searchParams.get('location') || '',
       limit: Number(searchParams.get('limit') || 200),
     });
     return NextResponse.json({ success: true, records });
@@ -45,6 +46,10 @@ export async function PATCH(request: NextRequest) {
     }
     if (!['disable', 'enable'].includes(action)) {
       return NextResponse.json({ success: false, error: '参数错误' }, { status: 400 });
+    }
+
+    if (action === 'disable' && !String(reason).trim()) {
+      return NextResponse.json({ success: false, error: '请填写停用原因' }, { status: 400 });
     }
 
     if (action === 'disable') {

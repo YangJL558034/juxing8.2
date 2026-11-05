@@ -34,6 +34,7 @@ export default function AccountCancelPage() {
   const [pageTab, setPageTab] = useState<'requests' | 'accounts'>('requests');
   const [accountRows, setAccountRows] = useState<Array<{ id: number; name: string; department: string; employmentStatus: string; accountState: string; daysLeft: number; disabledReason: string }>>([]);
   const [accountKeyword, setAccountKeyword] = useState('');
+  const [accountLocation, setAccountLocation] = useState<'all' | 'office' | 'workshop'>('all');
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountBusy, setAccountBusy] = useState(0);
   const [disableTarget, setDisableTarget] = useState<{ id: number; name: string } | null>(null);
@@ -97,7 +98,10 @@ export default function AccountCancelPage() {
   const loadAccounts = useCallback(async () => {
     setAccountLoading(true);
     try {
-      const qs2 = accountKeyword ? `?keyword=${encodeURIComponent(accountKeyword)}` : '';
+      const params = new URLSearchParams();
+      if (accountKeyword) params.set('keyword', accountKeyword);
+      if (accountLocation !== 'all') params.set('location', accountLocation);
+      const qs2 = params.toString() ? `?${params.toString()}` : '';
       const res = await fetch(`/api/employee-self-service/account-status${qs2}`);
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || '加载失败');
@@ -107,7 +111,7 @@ export default function AccountCancelPage() {
     } finally {
       setAccountLoading(false);
     }
-  }, [accountKeyword]);
+  }, [accountKeyword, accountLocation]);
 
   useEffect(() => {
     if (pageTab === 'accounts') void loadAccounts();
@@ -321,6 +325,18 @@ export default function AccountCancelPage() {
               placeholder="搜索姓名/部门/手机号"
               className="h-9 w-52 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-300"
             />
+            <div className="flex items-center gap-1 rounded-lg bg-slate-100/80 p-1">
+              {([['all', '全部'], ['office', '管理部'], ['workshop', '车间']] as Array<['all' | 'office' | 'workshop', string]>).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setAccountLocation(key)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${accountLocation === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <Button variant="outline" onClick={() => void loadAccounts()} disabled={accountLoading}>
               {accountLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
               刷新
@@ -410,12 +426,12 @@ export default function AccountCancelPage() {
             <input
               value={disableReason}
               onChange={(event) => setDisableReason(event.target.value)}
-              placeholder="停用原因（选填）"
+              placeholder="请填写停用原因（必填）"
               className="mt-3 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-300"
             />
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setDisableTarget(null)}>取消</Button>
-              <Button className="bg-rose-600 hover:bg-rose-700" onClick={() => void toggleAccount({ id: disableTarget.id, name: disableTarget.name, accountState: 'normal' }, 'disable', disableReason)}>
+              <Button className="bg-rose-600 hover:bg-rose-700" disabled={!disableReason.trim()} onClick={() => void toggleAccount({ id: disableTarget.id, name: disableTarget.name, accountState: 'normal' }, 'disable', disableReason)}>
                 确认停用
               </Button>
             </div>
