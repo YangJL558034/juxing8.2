@@ -30,7 +30,7 @@ export default function AccountCancelPage() {
   const [records, setRecords] = useState<AccountRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<'待处理' | '已处理' | '已驳回' | ''>('待处理');
+  const [filter, setFilter] = useState<'待处理' | '已处理' | '已恢复' | '已驳回' | ''>('待处理');
   const [processing, setProcessing] = useState<number | null>(null);
   // 用页面内确认框，替代可能被浏览器拦截的 window.confirm
   const [pending, setPending] = useState<{ record: AccountRequest; action: 'approve' | 'reject' | 'restore' } | null>(null);
@@ -78,6 +78,8 @@ export default function AccountCancelPage() {
         text: `已${action === 'approve' ? '同意' : '驳回'}「${record.employeeName}」的注销申请`,
       });
       await load();
+      // 同意后自动切到「冻结中」页签，管理员能立刻看到「恢复账号」按钮
+      if (action === 'approve' && filter === '待处理') setFilter('已处理');
     } catch (e) {
       setNotice({ type: 'err', text: e instanceof Error ? e.message : '处理失败' });
     } finally {
@@ -98,7 +100,7 @@ export default function AccountCancelPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {([['待处理', '待处理'], ['已处理', '已同意'], ['已驳回', '已驳回'], ['', '全部']] as Array<[typeof filter, string]>).map(([key, label]) => (
+          {([['待处理', '待处理'], ['已处理', '冻结中'], ['已恢复', '已恢复'], ['已驳回', '已驳回'], ['', '全部']] as Array<[typeof filter, string]>).map(([key, label]) => (
             <Button
               key={label}
               variant={filter === key ? 'default' : 'outline'}

@@ -135,6 +135,8 @@ export async function GET(request: NextRequest) {
         processedAt: row.processed_at,
         processedBy: row.processed_by,
         ...(function () {
+          // 仅「已处理/已恢复」才附带账号冻结状态，避免驳回记录误显示
+          if (!['已处理', '已恢复'].includes(String(row.status || ''))) return {};
           const employeeId = Number(row.employee_id || 0);
           if (!employeeId) return {};
           const info = getAccountState(employeeId);
