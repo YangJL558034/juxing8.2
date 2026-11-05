@@ -11,6 +11,15 @@ export function ensureAccountFreezeColumn() {
     if (!columns.includes('account_frozen_at')) {
       db.exec('ALTER TABLE employees ADD COLUMN account_frozen_at TEXT');
     }
+    if (!columns.includes('account_disabled')) {
+      db.exec('ALTER TABLE employees ADD COLUMN account_disabled INTEGER DEFAULT 0');
+    }
+    if (!columns.includes('account_disabled_reason')) {
+      db.exec('ALTER TABLE employees ADD COLUMN account_disabled_reason TEXT');
+    }
+    if (!columns.includes('account_disabled_at')) {
+      db.exec('ALTER TABLE employees ADD COLUMN account_disabled_at TEXT');
+    }
     columnReady = true;
   } catch (error) {
     console.error('ensureAccountFreezeColumn error:', error);
@@ -28,7 +37,7 @@ function parseChina(text: string | null | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export type AccountState = 'normal' | 'frozen' | 'permanent';
+export type AccountState = 'normal' | 'disabled' | 'frozen' | 'permanent';
 
 export interface AccountStateInfo {
   state: AccountState;
@@ -37,18 +46,23 @@ export interface AccountStateInfo {
   freezeUntil: string | null;
   /** 剩余可恢复天数（冻结中时 >= 0） */
   daysLeft: number;
+  /** 管理员停用原因（state=disabled 时有值） */
+  disabledReason?: string;
 }
 
 /** 读取员工账号状态：正常 / 冻结中 / 永久停用 */
 export function getAccountState(employeeId: number): AccountStateInfo {
   ensureAccountFreezeColumn();
-  const row = db.prepare('SELECT account_frozen_at FROM employees WHERE id = ?')
-    .get(employeeId) as { account_frozen_at: string | null } | undefined;
+  const row = db.prepare('SELECT account_frozen_at, account_disabled, account_disabled_reason FROM employees WHERE id = ?')
+    .get(employeeId) as { account_frozen_at: string | null; account_disabled: number | null; account_disabled_reason: string | null } | undefined;
+  if (Number(row?.account_disabled || 0) === 1) {
+    return { state: 'disabled', frozenAt: null, freezeUntil: null, daysLeft: 0, disabledReason: row?.account_disabled_reason || '' };
+  }
   const frozenAt = row?.account_frozen_at || null;
-  if (!frozenAt) return { state: 'normal', frozenAt: null, freezeUntil: null, daysLeft: 0 };
+  if (!frozenAt) return { state: 'normal', frozenAt: null, freezeUntil: null, daysLeft: 0, disabledReason: '' };
 
   const start = parseChina(frozenAt);
-  if (!start) return { state: 'normal', frozenAt: null, freezeUntil: null, daysLeft: 0 };
+  if (!start) return { state: 'normal', frozenAt: null, freezeUntil: null, daysLeft: 0, disabledReason: '' };
 
   const until = new Date(start.getTime() + ACCOUNT_FREEZE_DAYS * 86400000);
   const now = chinaNow();
@@ -88,6 +102,12 @@ export function unfreezeAccount(employeeId: number): boolean {
 
 /** 登录拦截提示文案 */
 export function accountBlockMessage(info: AccountStateInfo): string | null {
+  if (info.state === 'disabled') {
+    const reason = String(info.disabledReason || '').trim();
+    return reason
+      ? `该账号已被管理员停用（原因：${reason}），如需恢复请联系人事部门。`
+      : '该账号已被管理员停用，如需恢复请联系人事部门。';
+  }
   if (info.state === 'frozen') {
     return `该账号已申请注销，处于冻结期（还剩 ${info.daysLeft} 天可恢复）。如需恢复请联系人事部门。`;
   }
@@ -95,4 +115,73 @@ export function accountBlockMessage(info: AccountStateInfo): string | null {
     return '该账号已注销，无法登录。如需重新使用请联系人事部门。';
   }
   return null;
+}
+
+/** 管理员停用账号：永久生效，直到手动启用 */
+export function disableAccount(employeeId: number, reason: string) {
+  ensureAccountFreezeColumn();
+  db.prepare(`
+    UPDATE employees
+    SET account_disabled = 1,
+        account_disabled_reason = ?,
+        account_disabled_at = datetime('now', '+8 hours'),
+        wx_openid = NULL
+    WHERE id = ?
+  `).run(String(reason || '').trim(), employeeId);
+  try {
+    db.prepare('DELETE FROM employee_sessions WHERE employee_id = ?').run(employeeId);
+  } catch (error) {
+    console.error('disableAccount revoke sessions error:', error);
+  }
+}
+
+/** 管理员启用账号：清除停用与冻结标记 */
+export function enableAccount(employeeId: number) {
+  ensureAccountFreezeColumn();
+  db.prepare(`
+    UPDATE employees
+    SET account_disabled = 0,
+        account_disabled_reason = NULL,
+        account_disabled_at = NULL,
+        account_frozen_at = NULL
+    WHERE id = ?
+  `).run(employeeId);
+}
+
+/** 列出员工账号状态（供后台管理） */
+export function listAccountStatuses(params: { keyword?: string; state?: string; limit?: number }) {
+  ensureAccountFreezeColumn();
+  const keyword = String(params.keyword || '').trim();
+  const where: string[] = [];
+  const args: unknown[] = [];
+  if (keyword) {
+    where.push('(e.name LIKE ? OR e.department LIKE ? OR e.phone LIKE ?)');
+    args.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
+  }
+  const sql = `
+    SELECT e.id, e.name, e.department, e.position, e.status,
+           e.account_frozen_at, e.account_disabled, e.account_disabled_reason, e.account_disabled_at
+    FROM employees e
+    ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+    ORDER BY e.account_disabled DESC, e.account_frozen_at DESC, e.name
+    LIMIT ?
+  `;
+  args.push(Math.min(Number(params.limit) || 200, 500));
+  const rows = db.prepare(sql).all(...args) as Array<Record<string, unknown>>;
+  return rows.map((row) => {
+    const info = getAccountState(Number(row.id));
+    return {
+      id: Number(row.id),
+      name: String(row.name || ''),
+      department: String(row.department || ''),
+      position: String(row.position || ''),
+      employmentStatus: String(row.status || ''),
+      accountState: info.state,
+      daysLeft: info.daysLeft,
+      freezeUntil: info.freezeUntil,
+      disabledReason: info.disabledReason || '',
+      disabledAt: row.account_disabled_at ? String(row.account_disabled_at) : null,
+      frozenAt: info.frozenAt,
+    };
+  }).filter((row) => (params.state ? row.accountState === params.state : true));
 }
