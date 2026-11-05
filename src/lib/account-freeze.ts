@@ -37,7 +37,7 @@ function parseChina(text: string | null | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export type AccountState = 'normal' | 'disabled' | 'frozen' | 'permanent';
+export type AccountState = 'normal' | 'disabled' | 'frozen' | 'permanent' | 'resigned';
 
 export interface AccountStateInfo {
   state: AccountState;
@@ -206,7 +206,11 @@ export function listAccountStatuses(params: { keyword?: string; state?: string; 
       department: String(row.department || ''),
       position: String(row.position || ''),
       employmentStatus: String(row.status || ''),
-      accountState: info.state,
+      accountState: (function () {
+        const employment = String(row.status || '');
+        if (info.state === 'normal' && ['离职', '已离职'].includes(employment)) return 'resigned';
+        return info.state;
+      })(),
       daysLeft: info.daysLeft,
       freezeUntil: info.freezeUntil,
       disabledReason: info.disabledReason || '',

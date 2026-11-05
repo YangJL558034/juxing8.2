@@ -35,6 +35,7 @@ export default function AccountCancelPage() {
   const [accountRows, setAccountRows] = useState<Array<{ id: number; name: string; department: string; employmentStatus: string; accountState: string; daysLeft: number; disabledReason: string }>>([]);
   const [accountKeyword, setAccountKeyword] = useState('');
   const [accountLocation, setAccountLocation] = useState<'all' | 'office' | 'workshop'>('all');
+  const [accountStateFilter, setAccountStateFilter] = useState<'all' | 'normal' | 'disabled' | 'frozen' | 'resigned'>('all');
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountBusy, setAccountBusy] = useState(0);
   const [disableTarget, setDisableTarget] = useState<{ id: number; name: string } | null>(null);
@@ -101,6 +102,7 @@ export default function AccountCancelPage() {
       const params = new URLSearchParams();
       if (accountKeyword) params.set('keyword', accountKeyword);
       if (accountLocation !== 'all') params.set('location', accountLocation);
+      if (accountStateFilter !== 'all') params.set('state', accountStateFilter);
       const qs2 = params.toString() ? `?${params.toString()}` : '';
       const res = await fetch(`/api/employee-self-service/account-status${qs2}`);
       const json = await res.json().catch(() => ({}));
@@ -111,7 +113,7 @@ export default function AccountCancelPage() {
     } finally {
       setAccountLoading(false);
     }
-  }, [accountKeyword, accountLocation]);
+  }, [accountKeyword, accountLocation, accountStateFilter]);
 
   useEffect(() => {
     if (pageTab === 'accounts') void loadAccounts();
@@ -337,6 +339,18 @@ export default function AccountCancelPage() {
                 </button>
               ))}
             </div>
+            <div className="flex items-center gap-1 rounded-lg bg-slate-100/80 p-1">
+              {([['all', '全部'], ['normal', '正常'], ['disabled', '已停用'], ['frozen', '冻结中'], ['resigned', '已离职']] as Array<['all' | 'normal' | 'disabled' | 'frozen' | 'resigned', string]>).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setAccountStateFilter(key)}
+                  className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${accountStateFilter === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <Button variant="outline" onClick={() => void loadAccounts()} disabled={accountLoading}>
               {accountLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
               刷新
@@ -373,12 +387,13 @@ export default function AccountCancelPage() {
                   <TableCell className="text-slate-600">{row.employmentStatus || '-'}</TableCell>
                   <TableCell>
                     <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      row.accountState === 'disabled' ? 'bg-rose-50 text-rose-700'
+                      row.accountState === 'disabled' || row.accountState === 'resigned' ? 'bg-rose-50 text-rose-700'
                         : row.accountState === 'frozen' ? 'bg-amber-50 text-amber-700'
                           : row.accountState === 'permanent' ? 'bg-slate-200 text-slate-600'
                             : 'bg-emerald-50 text-emerald-700'
                     }`}>
-                      {row.accountState === 'disabled' ? '已停用'
+                      {row.accountState === 'resigned' ? '已停用（离职）'
+                        : row.accountState === 'disabled' ? '已停用'
                         : row.accountState === 'frozen' ? `冻结中·剩 ${row.daysLeft} 天`
                           : row.accountState === 'permanent' ? '已注销' : '正常'}
                     </span>
@@ -387,7 +402,9 @@ export default function AccountCancelPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    {row.accountState === 'disabled' ? (
+                    {row.accountState === 'resigned' ? (
+                      <span className="text-xs text-slate-400">已离职，无需停用</span>
+                    ) : row.accountState === 'disabled' ? (
                       <Button
                         size="sm"
                         className="bg-emerald-600 hover:bg-emerald-700"
