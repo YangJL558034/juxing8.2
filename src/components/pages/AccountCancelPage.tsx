@@ -13,6 +13,9 @@ interface AccountRequest {
   requestType: string;
   reason: string;
   status: string;
+  accountState?: 'normal' | 'frozen' | 'permanent';
+  freezeDaysLeft?: number;
+  freezeUntil?: string | null;
   createdAt: string;
   processedAt: string | null;
   processedBy: string | null;
@@ -30,7 +33,7 @@ export default function AccountCancelPage() {
   const [filter, setFilter] = useState<'待处理' | '已处理' | '已驳回' | ''>('待处理');
   const [processing, setProcessing] = useState<number | null>(null);
   // 用页面内确认框，替代可能被浏览器拦截的 window.confirm
-  const [pending, setPending] = useState<{ record: AccountRequest; action: 'approve' | 'reject' } | null>(null);
+  const [pending, setPending] = useState<{ record: AccountRequest; action: 'approve' | 'reject' | 'restore' } | null>(null);
   const [notice, setNotice] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -52,7 +55,7 @@ export default function AccountCancelPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const review = async (record: AccountRequest, action: 'approve' | 'reject') => {
+  const review = async (record: AccountRequest, action: 'approve' | 'reject' | 'restore') => {
     setPending({ record, action });
   };
 
@@ -170,6 +173,17 @@ export default function AccountCancelPage() {
                   }`}>
                     {record.status}
                   </span>
+                  {record.status === '已处理' && record.accountState === 'frozen' && (
+                    <div className="mt-1 text-[11px] text-amber-600">
+                      冻结中 · 还剩 {record.freezeDaysLeft ?? 0} 天可恢复
+                    </div>
+                  )}
+                  {record.status === '已处理' && record.accountState === 'permanent' && (
+                    <div className="mt-1 text-[11px] text-red-600">已永久停用</div>
+                  )}
+                  {record.status === '已恢复' && (
+                    <div className="mt-1 text-[11px] text-emerald-600">账号已恢复，可正常登录</div>
+                  )}
                   {record.processedAt && (
                     <div className="mt-1 text-[11px] text-slate-400">{fmt(record.processedAt)} {record.processedBy || ''}</div>
                   )}
@@ -197,6 +211,18 @@ export default function AccountCancelPage() {
                         驳回
                       </Button>
                     </div>
+                  ) : record.status === '已处理' && record.accountState === 'frozen' ? (
+                    <Button
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700"
+                      disabled={processing === record.id}
+                      onClick={() => void review(record, 'restore')}
+                    >
+                      {processing === record.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      恢复账号
+                    </Button>
+                  ) : record.status === '已处理' ? (
+                    <span className="text-xs text-slate-400">已永久停用</span>
                   ) : (
                     <span className="text-xs text-slate-400">已处理</span>
                   )}

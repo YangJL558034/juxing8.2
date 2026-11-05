@@ -134,6 +134,12 @@ export async function GET(request: NextRequest) {
         createdAt: row.created_at,
         processedAt: row.processed_at,
         processedBy: row.processed_by,
+        ...(function () {
+          const employeeId = Number(row.employee_id || 0);
+          if (!employeeId) return {};
+          const info = getAccountState(employeeId);
+          return { accountState: info.state, freezeDaysLeft: info.daysLeft, freezeUntil: info.freezeUntil };
+        })(),
       })),
     });
   } catch (error) {
