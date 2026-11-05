@@ -165,7 +165,7 @@ export default function AccountCancelPage() {
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
             <ShieldAlert className="h-4 w-4 text-amber-600" />
-            账号注销申请
+            员工自助平台账号管理
           </div>
           <p className="mt-1 text-sm text-slate-500">
             员工在小程序「我的 → 注销账号」提交的申请。同意后人事档案仍保留，仅停用其小程序登录。
@@ -340,7 +340,7 @@ export default function AccountCancelPage() {
               ))}
             </div>
             <div className="flex items-center gap-1 rounded-lg bg-slate-100/80 p-1">
-              {([['all', '全部'], ['normal', '正常'], ['disabled', '已停用'], ['frozen', '冻结中'], ['resigned', '已离职']] as Array<['all' | 'normal' | 'disabled' | 'frozen' | 'resigned', string]>).map(([key, label]) => (
+              {([['all', '全部'], ['normal', '正常'], ['frozen', '冻结中'], ['resigned', '已离职']] as Array<['all' | 'normal' | 'disabled' | 'frozen' | 'resigned', string]>).map(([key, label]) => (
                 <button
                   key={key}
                   type="button"

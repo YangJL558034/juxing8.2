@@ -388,7 +388,7 @@ export const navMenuItems: NavMenuItem[] = [
           { key: 'personnel-resignation-certificate', label: '离职证明', icon: 'FileText' },
           { key: 'personnel-labor-termination', label: '解除劳动合同', icon: 'ClipboardList' },
           { key: 'personnel-labor-contract', label: '劳动合同', icon: 'FileText' },
-          { key: 'account-cancels', label: '账号注销申请', icon: 'Shield' },
+          { key: 'account-cancels', label: '员工自助平台账号管理', icon: 'Shield' },
           { key: 'personnel-leave-request', label: '请假申请', icon: 'Calendar' },
           { key: 'human-resources', label: '人力资源', icon: 'Briefcase' },
         ],

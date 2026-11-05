@@ -89,7 +89,7 @@ const pageNames: Record<string, string> = {
   smtp: '邮件配置',
   usermanage: '用户管理',
   'operation-logs': '操作日志',
-  'account-cancels': '账号注销申请',
+  'account-cancels': '员工自助平台账号管理',
   settings: '系统设置',
   'notification-center': '通知中心',
 };
