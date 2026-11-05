@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAccountState, accountBlockMessage } from '@/lib/account-freeze';
 import { db, query } from '@/lib/database';
 import { isCompleteIdCard, normalizeIdCard } from '@/lib/identity-validation';
 import { issueEmployeeToken, revokeEmployeeToken } from '@/lib/employee-session';
@@ -51,6 +52,13 @@ export async function POST(request: NextRequest) {
     if (!employee) {
       return NextResponse.json({ success: false, error: '员工信息验证失败，请确认姓名和身份证号是否正确' }, { status: 401 });
     }
+    // 账号冻结 / 注销检查
+    const accountState = getAccountState(employee.id);
+    const blockMessage = accountBlockMessage(accountState);
+    if (blockMessage) {
+      return NextResponse.json({ success: false, error: blockMessage, accountState: accountState.state }, { status: 403 });
+    }
+
     if (['离职', '已离职'].includes(String(employee.status || ''))) {
       return NextResponse.json({ success: false, error: '该员工已离职，无法登录' }, { status: 403 });
     }

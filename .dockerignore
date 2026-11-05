@@ -4,6 +4,5 @@ node_modules
 .gitignore
 *.md
 .env*.local
-data
-uploads
 *.log
+backups

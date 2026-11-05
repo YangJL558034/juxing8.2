@@ -3,6 +3,7 @@ import { db } from '@/lib/database';
 import { getEmployeeByRequest } from '@/lib/employee-session';
 import { sendEmail } from '@/lib/email';
 import { verifyToken } from '@/lib/auth';
+import { freezeAccount, unfreezeAccount, getAccountState, ACCOUNT_FREEZE_DAYS } from '@/lib/account-freeze';
 
 async function requireAdmin(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
@@ -155,11 +156,36 @@ export async function PATCH(request: NextRequest) {
     if (!Number.isInteger(id) || id <= 0) {
       return NextResponse.json({ success: false, error: '参数错误' }, { status: 400 });
     }
-    if (!['approve', 'reject'].includes(action)) {
+    if (!['approve', 'reject', 'restore'].includes(action)) {
       return NextResponse.json({ success: false, error: '参数错误' }, { status: 400 });
     }
 
+    // 恢复账号（仅冻结期内可恢复）
+    if (action === 'restore') {
+      const target = db.prepare('SELECT employee_id FROM employee_account_requests WHERE id = ?')
+        .get(id) as { employee_id: number | null } | undefined;
+      if (!target?.employee_id) {
+        return NextResponse.json({ success: false, error: '找不到对应员工' }, { status: 404 });
+      }
+      const info = getAccountState(target.employee_id);
+      if (info.state === 'permanent') {
+        return NextResponse.json({ success: false, error: '已超过 30 天冻结期，账号无法恢复' }, { status: 400 });
+      }
+      if (!unfreezeAccount(target.employee_id)) {
+        return NextResponse.json({ success: false, error: '恢复失败' }, { status: 500 });
+      }
+      db.prepare(`
+        UPDATE employee_account_requests
+        SET status = '已恢复', processed_at = datetime('now', '+8 hours'), processed_by = ?
+        WHERE id = ?
+      `).run(user.name || user.username || '', id);
+      return NextResponse.json({ success: true, status: '已恢复', message: '账号已恢复，员工可以重新登录' });
+    }
+
     const nextStatus = action === 'approve' ? '已处理' : '已驳回';
+    const cancelRequest = db.prepare('SELECT employee_id FROM employee_account_requests WHERE id = ?')
+      .get(id) as { employee_id: number | null } | undefined;
+
     const updated = db.prepare(`
       UPDATE employee_account_requests
       SET status = ?, processed_at = datetime('now', '+8 hours'), processed_by = ?
@@ -170,12 +196,23 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ success: false, error: '该申请不存在或已处理' }, { status: 400 });
     }
 
+    // 同意注销 → 冻结账号 30 天（期间可恢复），超期永久停用
+    if (action === 'approve' && cancelRequest?.employee_id) {
+      freezeAccount(cancelRequest.employee_id);
+    }
+
     db.prepare(`
       INSERT INTO operation_logs (username, module, action, description, created_at)
       VALUES (?, 'employee', 'review', ?, datetime('now', '+8 hours'))
     `).run(user.name || user.username || '', `处理账号注销申请 #${id}：${nextStatus}`);
 
-    return NextResponse.json({ success: true, status: nextStatus });
+    return NextResponse.json({
+      success: true,
+      status: nextStatus,
+      message: action === 'approve'
+        ? `账号已冻结，${ACCOUNT_FREEZE_DAYS} 天内可恢复，超期永久停用`
+        : '已驳回注销申请',
+    });
   } catch (error) {
     console.error('Review account cancel request error:', error);
     return NextResponse.json({ success: false, error: '处理失败' }, { status: 500 });

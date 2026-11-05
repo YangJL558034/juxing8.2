@@ -17,7 +17,7 @@ export function getEmployeeSession(request: NextRequest) {
   const token = request.cookies.get(cookieName)?.value;
   if (!token) return null;
   return db.prepare(`SELECT e.id, e.name FROM employee_sessions s JOIN employees e ON e.id = s.employee_id
-    WHERE s.token_hash = ? AND s.expires_at > ? AND COALESCE(e.status, '') NOT IN ('离职', '已离职')`)
+    WHERE s.token_hash = ? AND s.expires_at > ? AND COALESCE(e.status, '') NOT IN ('离职', '已离职') AND e.account_frozen_at IS NULL`)
     .get(digest(token), Date.now()) as { id: number; name: string } | undefined;
 }
 
@@ -38,7 +38,7 @@ export function getEmployeeByRequest(request: NextRequest) {
   const headerToken = request.headers.get(EMPLOYEE_TOKEN_HEADER) || '';
   if (headerToken) {
     const found = db.prepare(`SELECT e.id, e.name FROM employee_sessions s JOIN employees e ON e.id = s.employee_id
-      WHERE s.token_hash = ? AND s.expires_at > ? AND COALESCE(e.status, '') NOT IN ('离职', '已离职')`)
+      WHERE s.token_hash = ? AND s.expires_at > ? AND COALESCE(e.status, '') NOT IN ('离职', '已离职') AND e.account_frozen_at IS NULL`)
       .get(digest(headerToken), Date.now()) as { id: number; name: string } | undefined;
     if (found) return found;
   }
