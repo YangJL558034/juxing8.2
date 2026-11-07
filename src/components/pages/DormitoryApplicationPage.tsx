@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Building2,
   CalendarDays,
@@ -54,14 +54,20 @@ function Field({
   );
 }
 
-export default function DormitoryApplicationPage({ publicMode = false }: { publicMode?: boolean } = {}) {
-  const [data, setData] = useState<DormitoryApplicationData>(createInitialData);
+export default function DormitoryApplicationPage({ publicMode = false, draftKey }: { publicMode?: boolean; draftKey?: string } = {}) {
+  const [data, setData] = useState<DormitoryApplicationData>(() => { if (!draftKey || typeof window === 'undefined') return createInitialData(); try { const raw = window.localStorage.getItem(draftKey); if (!raw) return createInitialData(); const saved = JSON.parse(raw) as Partial<DormitoryApplicationData>; return { ...createInitialData(), ...saved }; } catch { return createInitialData(); } });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const updateField = <K extends keyof DormitoryApplicationData>(field: K, value: DormitoryApplicationData[K]) => {
     setData((current) => ({ ...current, [field]: value }));
   };
+
+  // 公开页：自动保存草稿，误点返回后重新进入可继续填写
+  useEffect(() => {
+    if (!draftKey || typeof window === 'undefined' || submitted) return;
+    try { window.localStorage.setItem(draftKey, JSON.stringify(data)); } catch { /* 忽略存储异常 */ }
+  }, [draftKey, data, submitted]);
 
   const submit = async () => {
     if (!data.name.trim()) {
@@ -111,6 +117,9 @@ export default function DormitoryApplicationPage({ publicMode = false }: { publi
       }
 
       setSubmitted(true);
+      if (draftKey && typeof window !== 'undefined') {
+        try { window.localStorage.removeItem(draftKey); } catch { /* 忽略存储异常 */ }
+      }
     } catch (error) {
       alert(error instanceof Error ? error.message : '提交住宿申请失败');
     } finally {
