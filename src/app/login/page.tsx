@@ -107,7 +107,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#f6fbff] text-slate-950">
+    <main className="relative min-h-dvh overflow-hidden bg-gradient-to-br from-[#e8f1ff] via-[#f4f8ff] to-[#eaf3ff] text-slate-950">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_24%_18%,rgba(37,99,235,0.10),transparent_30%),radial-gradient(circle_at_80%_20%,rgba(125,211,252,0.16),transparent_28%),linear-gradient(180deg,#f9fcff_0%,#f5faff_48%,#fafdff_100%)]" />
       <div className="pointer-events-none fixed inset-x-0 bottom-0 h-1/2 bg-[radial-gradient(ellipse_at_bottom,rgba(226,246,255,0.84),transparent_68%)]" />
 
@@ -127,8 +127,8 @@ export default function LoginPage() {
         <div className="grid w-full items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="hidden lg:block">
             <div className="flex items-center gap-4">
-              <JuxingMark className="h-14 w-14" />
-              <h1 className="text-[2.1rem] font-bold leading-none text-[#0b57c9]">
+              <img src="/employee-icons/logo.png" alt="" className="h-14 w-14 object-contain" />
+              <h1 className="whitespace-nowrap text-[28px] font-bold leading-none text-[#1a63d8]">
                 <span className="text-[#1677ff]">聚星</span>数据平台
               </h1>
               <span className="mx-3 h-12 w-px bg-slate-300" />
