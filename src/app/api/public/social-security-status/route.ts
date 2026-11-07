@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 
+
+function ensurePurchaseColumns() {
+  try {
+    const cols = (db.prepare('PRAGMA table_info(social_security_purchase_records)').all() as Array<{ name: string }>).map((c) => c.name);
+    if (!cols.includes('review_status')) db.exec("ALTER TABLE social_security_purchase_records ADD COLUMN review_status TEXT DEFAULT '已通过'");
+    if (!cols.includes('review_remark')) db.exec('ALTER TABLE social_security_purchase_records ADD COLUMN review_remark TEXT');
+    if (!cols.includes('reviewed_at')) db.exec('ALTER TABLE social_security_purchase_records ADD COLUMN reviewed_at TEXT');
+  } catch { /* 忽略 */ }
+}
+
 /** 公开查询：按姓名+身份证查看社保申请状态（购买 / 不购买协议） */
 export async function GET(request: NextRequest) {
   try {
@@ -28,12 +38,24 @@ export async function GET(request: NextRequest) {
     }
 
     // 购买社保记录
-    const purchase = db.prepare(`
-      SELECT id, data_json, review_status, review_remark, created_at
-      FROM social_security_purchase_records
-      WHERE TRIM(employee_name) = ? AND UPPER(TRIM(COALESCE(id_card, ''))) = ?
-      ORDER BY id DESC LIMIT 1
-    `).get(name, idCard) as { id: number; data_json: string | null; review_status: string | null; review_remark: string | null; created_at: string | null } | undefined;
+    ensurePurchaseColumns();
+    let purchase: { id: number; data_json: string | null; review_status?: string | null; review_remark?: string | null; created_at?: string | null } | undefined;
+    try {
+      purchase = db.prepare(`
+        SELECT id, data_json, review_status, review_remark, created_at
+        FROM social_security_purchase_records
+        WHERE TRIM(employee_name) = ? AND UPPER(TRIM(COALESCE(id_card, ''))) = ?
+        ORDER BY id DESC LIMIT 1
+      `).get(name, idCard) as typeof purchase;
+    } catch {
+      // 旧库缺少 review 列时退回最小查询
+      purchase = db.prepare(`
+        SELECT id, data_json, created_at
+        FROM social_security_purchase_records
+        WHERE TRIM(employee_name) = ? AND UPPER(TRIM(COALESCE(id_card, ''))) = ?
+        ORDER BY id DESC LIMIT 1
+      `).get(name, idCard) as typeof purchase;
+    }
 
     let purchaseInfo = null as null | { id: number; status: string; remark: string; createdAt: string };
     if (purchase) {
@@ -51,12 +73,21 @@ export async function GET(request: NextRequest) {
     // 不购买社保协议（声明记录）
     let waiverInfo = null as null | { id: number; status: string; createdAt: string };
     try {
-      const waiver = db.prepare(`
-        SELECT id, status, created_at
-        FROM social_security_records
-        WHERE TRIM(name) = ? AND UPPER(TRIM(COALESCE(id_card, ''))) = ?
-        ORDER BY id DESC LIMIT 1
-      `).get(name, idCard) as { id: number; status: string | null; created_at: string | null } | undefined;
+      let waiver: { id: number; status?: string | null; created_at?: string | null } | undefined;
+      try {
+        waiver = db.prepare(`
+          SELECT id, status, created_at
+          FROM social_security_records
+          WHERE TRIM(name) = ? AND UPPER(TRIM(COALESCE(id_card, ''))) = ?
+          ORDER BY id DESC LIMIT 1
+        `).get(name, idCard) as typeof waiver;
+      } catch {
+        waiver = db.prepare(`
+          SELECT id FROM social_security_records
+          WHERE TRIM(name) = ? AND UPPER(TRIM(COALESCE(id_card, ''))) = ?
+          ORDER BY id DESC LIMIT 1
+        `).get(name, idCard) as typeof waiver;
+      }
       if (waiver) {
         waiverInfo = { id: Number(waiver.id), status: String(waiver.status || '已提交'), createdAt: String(waiver.created_at || '') };
       }
