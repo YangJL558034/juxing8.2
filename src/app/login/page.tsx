@@ -107,9 +107,8 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-gradient-to-br from-[#e8f1ff] via-[#f4f8ff] to-[#eaf3ff] text-slate-950">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_24%_18%,rgba(37,99,235,0.10),transparent_30%),radial-gradient(circle_at_80%_20%,rgba(125,211,252,0.16),transparent_28%),linear-gradient(180deg,#f9fcff_0%,#f5faff_48%,#fafdff_100%)]" />
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 h-1/2 bg-[radial-gradient(ellipse_at_bottom,rgba(226,246,255,0.84),transparent_68%)]" />
+    <main className="relative min-h-dvh overflow-hidden bg-[#eef5ff] bg-[url('/login-bg.jpg')] bg-cover bg-center bg-no-repeat text-slate-950">
+      <div className="pointer-events-none fixed inset-0 bg-gradient-to-r from-white/50 via-white/20 to-white/45" />
 
       {loginSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
