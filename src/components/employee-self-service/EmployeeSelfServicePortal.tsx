@@ -354,6 +354,7 @@ export default function EmployeeSelfServicePortal() {
         setError(sessionResult.error || '员工信息验证失败');
         return;
       }
+      try { window.localStorage.setItem('employee-portal-token', sessionResult.token); } catch { /* 忽略存储异常 */ }
       const response = await fetch('/api/employees/query', {
         headers: { 'X-Employee-Token': sessionResult.token },
         cache: 'no-store',
@@ -470,7 +471,8 @@ export default function EmployeeSelfServicePortal() {
   const markNotificationRead = async (id: number) => {
     if (readNotificationIds.includes(id)) return;
     try {
-      const response = await fetch('/api/employee-self-service/notifications/read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+      const portalToken = (() => { try { return window.localStorage.getItem('employee-portal-token') || ''; } catch { return ''; } })();
+      const response = await fetch('/api/employee-self-service/notifications/read', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(portalToken ? { 'X-Employee-Token': portalToken } : {}) }, body: JSON.stringify({ id }) });
       const result = await response.json() as { success?: boolean };
       if (!response.ok || !result.success) throw new Error('已读状态保存失败，请重试');
       setReadNotificationIds(current => current.includes(id) ? current : [...current, id]);
