@@ -395,7 +395,14 @@ export default function EmployeeSelfServicePortal() {
         window.setTimeout(() => setWelcomeMessage(''), 3600);
       }
       const latestNotice = portalData.serviceSummary.notifications[0];
-      if (!preserveNavigation && latestNotice && !latestNotice.isRead) {
+      let locallyReadIds: number[] = [];
+      try {
+        const rawLocalRead = window.localStorage.getItem('employee-portal-local-read');
+        const parsedLocalRead = rawLocalRead ? (JSON.parse(rawLocalRead) as number[]) : [];
+        locallyReadIds = Array.isArray(parsedLocalRead) ? parsedLocalRead : [];
+      } catch { locallyReadIds = []; }
+      // 已读（含本地记录的合成通知已读）不再自动弹窗
+      if (!preserveNavigation && latestNotice && !latestNotice.isRead && !locallyReadIds.includes(latestNotice.id)) {
         setNotificationAutoOnlyLatest(true);
         setNotificationDialogOpen(true);
       }
