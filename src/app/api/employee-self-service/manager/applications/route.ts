@@ -18,6 +18,22 @@ export async function GET(request: NextRequest) {
   const scope = new URL(request.url).searchParams.get('scope') || 'pending';
   const statusClause = scope === 'all' ? "1=1" : "status NOT IN ('已审核','已驳回')";
 
+  // 管理员已在后台手动转正的员工，其待处理转正申请自动视为通过（不再出现在审核列表）
+  try {
+    db.prepare(`
+      UPDATE regularization_records
+      SET status = '已审核', updated_at = datetime('now', '+8 hours')
+      WHERE status NOT IN ('已审核', '已驳回')
+        AND deleted_at IS NULL
+        AND employee_id IN (
+          SELECT employee_id FROM regularization_records
+          WHERE status = '已审核' AND deleted_at IS NULL
+        )
+    `).run();
+  } catch (syncError) {
+    console.error('sync regularization status error:', syncError);
+  }
+
   const records = [
     ...db.prepare(`SELECT id, '请假申请' AS type, employee_name AS employeeName, department, status, created_at AS createdAt FROM leave_request_records WHERE deleted_at IS NULL AND ${statusClause} AND employee_id IN (SELECT id FROM employees WHERE (CASE trim(location) WHEN '办公室' THEN 'office' WHEN '车间' THEN 'workshop' ELSE lower(trim(location)) END) = ?) ORDER BY created_at DESC`).all(location),
     ...db.prepare(`SELECT id, '离职申请' AS type, name AS employeeName, department, status, created_at AS createdAt FROM resignation_records WHERE deleted_at IS NULL AND ${statusClause} AND employee_id IN (SELECT id FROM employees WHERE (CASE trim(location) WHEN '办公室' THEN 'office' WHEN '车间' THEN 'workshop' ELSE lower(trim(location)) END) = ?) ORDER BY created_at DESC`).all(location),
