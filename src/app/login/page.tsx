@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, Eye, EyeOff, Loader2, LockKeyhole, UserRound } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, CircleHelp, Eye, EyeOff, Grid2x2, Loader2, LockKeyhole, ReceiptText, UserRound, UserRoundPlus } from 'lucide-react';
 
 function safeNextPath() {
   const params = new URLSearchParams(window.location.search);
@@ -123,137 +123,149 @@ export default function LoginPage() {
         </div>
       )}
 
-      <div className="relative z-10 flex min-h-dvh items-start justify-center px-6 pb-10 pt-[13vh] md:items-center md:px-8 md:py-12">
-        <section className="w-full max-w-[28rem] md:max-w-[44rem]">
-          <div className="mb-12 flex items-center justify-center gap-4 md:mb-8 md:gap-0">
-            <JuxingMark className="h-20 w-20 md:hidden" />
-            <h1 className="whitespace-nowrap text-[2.7rem] font-bold leading-none text-blue-700 md:text-[2rem] md:font-semibold md:text-slate-950">
-              <span className="text-blue-700">聚星</span>数据平台
-            </h1>
+            <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-[1180px] items-center justify-center px-5 py-10 md:px-8">
+        <div className="grid w-full items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="hidden lg:block">
+            <div className="flex items-center gap-4">
+              <JuxingMark className="h-14 w-14" />
+              <h1 className="text-[2.1rem] font-bold leading-none text-[#0b57c9]">
+                <span className="text-[#1677ff]">聚星</span>数据平台
+              </h1>
+              <span className="mx-3 h-12 w-px bg-slate-300" />
+              <div>
+                <div className="text-xl font-semibold text-slate-900">人事 · 员工自助平台</div>
+                <div className="mt-1 text-sm text-slate-500">工资、考勤与员工事务一站式查询与办理</div>
+              </div>
+            </div>
+
+            <div className="mt-16 flex items-start gap-10">
+              {[
+                { icon: <CalendarCheck className="h-6 w-6" />, label: '考勤查询' },
+                { icon: <ReceiptText className="h-6 w-6" />, label: '工资明细' },
+                { icon: <UserRound className="h-6 w-6" />, label: '个人信息' },
+                { icon: <Grid2x2 className="h-6 w-6" />, label: '更多服务' },
+              ].map((item) => (
+                <div key={item.label} className="flex w-20 flex-col items-center gap-3">
+                  <div className="grid h-14 w-14 place-items-center rounded-2xl border border-blue-100 bg-white text-[#1677ff] shadow-sm">
+                    {item.icon}
+                  </div>
+                  <span className="text-sm text-slate-600">{item.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <form
-            onSubmit={handleLogin}
-            className="mx-auto w-full rounded-none bg-transparent p-0 md:max-w-[35rem] md:rounded-lg md:bg-white/92 md:px-14 md:py-12 md:shadow-[0_18px_45px_rgba(15,23,42,0.08)] md:backdrop-blur"
-          >
-            {error && (
-              <div className="mb-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600 md:rounded-md">
-                {error}
+          <section className="mx-auto w-full max-w-[430px]">
+            <div className="rounded-[26px] bg-white p-7 shadow-[0_24px_60px_rgba(15,23,42,0.12)] ring-1 ring-slate-100 md:p-9">
+              <div className="mb-8 text-center">
+                <h2 className="text-[26px] font-bold tracking-wide text-slate-900">员工登录</h2>
+                <div className="mx-auto mt-3 h-[3px] w-12 rounded-full bg-[#1677ff]" />
               </div>
-            )}
 
-            <div className="space-y-8 md:space-y-6">
-              <label className="block">
-                <span className="sr-only">账号</span>
-                <span className="flex h-16 items-center gap-5 rounded-full border border-slate-200/90 bg-white/86 px-7 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition focus-within:border-blue-300 focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(37,99,235,0.08)] md:h-14 md:rounded-md md:px-5 md:shadow-none">
-                  <UserRound className="h-8 w-8 text-slate-400 md:hidden" />
+              <form onSubmit={handleLogin} className="space-y-4">
+                {error && (
+                  <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</div>
+                )}
+
+                <label className="flex h-14 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 transition focus-within:border-[#1677ff] focus-within:ring-2 focus-within:ring-blue-50">
+                  <UserRound className="h-5 w-5 shrink-0 text-slate-400" />
                   <input
                     type="text"
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
-                    placeholder="账号 / 手机号 / 邮箱"
-                    className="min-w-0 flex-1 bg-transparent text-[1.55rem] text-slate-900 outline-none placeholder:text-slate-400 md:text-lg md:placeholder:text-slate-400"
+                    placeholder="请输入员工姓名"
+                    className="min-w-0 flex-1 bg-transparent text-[15px] text-slate-900 outline-none placeholder:text-slate-400"
                     required
                   />
-                </span>
-              </label>
+                </label>
 
-              <label className="block">
-                <span className="sr-only">密码</span>
-                <span className="flex h-16 items-center gap-5 rounded-full border border-slate-200/90 bg-white/86 px-7 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition focus-within:border-blue-300 focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(37,99,235,0.08)] md:h-14 md:rounded-md md:px-5 md:shadow-none">
-                  <LockKeyhole className="h-8 w-8 text-slate-400 md:hidden" />
+                <label className="flex h-14 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 transition focus-within:border-[#1677ff] focus-within:ring-2 focus-within:ring-blue-50">
+                  <LockKeyhole className="h-5 w-5 shrink-0 text-slate-400" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    placeholder="密码"
-                    className="min-w-0 flex-1 bg-transparent text-[1.55rem] text-slate-900 outline-none placeholder:text-slate-400 md:text-lg"
+                    placeholder="请输入密码"
+                    className="min-w-0 flex-1 bg-transparent text-[15px] text-slate-900 outline-none placeholder:text-slate-400"
                     required
                   />
                   <button
                     type="button"
                     aria-label={showPassword ? '隐藏密码' : '显示密码'}
                     onClick={() => setShowPassword((value) => !value)}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
-                </span>
-              </label>
+                </label>
 
-              {/* 验证码 */}
-              <div className="block">
-                <div className="flex items-center gap-3 md:gap-2">
+                <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => void loadCaptcha()}
                     title="点击刷新验证码"
-                    className="flex h-16 w-[9.5rem] shrink-0 items-center justify-center rounded-full border border-slate-200/90 bg-slate-50 text-[1.35rem] font-semibold tracking-widest text-slate-700 transition hover:bg-slate-100 md:h-14 md:w-[7.5rem] md:rounded-md md:text-base"
+                    className="flex h-14 w-[112px] shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-base font-semibold tracking-widest text-slate-700 transition hover:bg-slate-100"
                   >
                     {captchaLoading ? '加载中' : (captchaQuestion || '点击获取')}
                   </button>
-                  <span className="flex h-16 flex-1 items-center rounded-full border border-slate-200/90 bg-white/86 px-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition focus-within:border-blue-300 focus-within:bg-white md:h-14 md:rounded-md md:px-5 md:shadow-none">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={captchaAnswer}
-                      onChange={(event) => setCaptchaAnswer(event.target.value.trim())}
-                      placeholder="验证码"
-                      maxLength={4}
-                      className="min-w-0 flex-1 bg-transparent text-[1.55rem] text-slate-900 outline-none placeholder:text-slate-400 md:text-lg"
-                      required
-                    />
-                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={captchaAnswer}
+                    onChange={(event) => setCaptchaAnswer(event.target.value.trim())}
+                    placeholder="请输入验证码"
+                    maxLength={4}
+                    className="h-14 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1677ff] focus:ring-2 focus:ring-blue-50"
+                    required
+                  />
                   <button
                     type="button"
                     onClick={() => void loadCaptcha()}
-                    className="shrink-0 whitespace-nowrap text-[1.15rem] text-blue-600 hover:underline md:text-sm"
+                    className="shrink-0 whitespace-nowrap text-sm font-medium text-[#1677ff] hover:underline"
                   >
                     换一张
                   </button>
                 </div>
-              </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading || loginSuccess}
-              className="login-action-button mt-16 flex h-[4.35rem] w-full items-center justify-center rounded-full bg-blue-600 px-5 text-[1.8rem] font-semibold text-white shadow-[0_18px_34px_rgba(37,99,235,0.22)] transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 md:mt-8 md:h-14 md:text-lg"
-            >
-              {loginSuccess ? (
-                '登录成功'
-              ) : loading ? (
-                <>
-                  <Loader2 className="mr-2 h-6 w-6 animate-spin md:h-5 md:w-5" />
-                  登录中...
-                </>
-              ) : (
-                '登录'
-              )}
-            </button>
+                <button
+                  type="submit"
+                  disabled={loading || loginSuccess}
+                  className="mt-2 flex h-14 w-full items-center justify-center rounded-xl bg-[#1677ff] text-lg font-semibold tracking-wide text-white shadow-[0_12px_26px_rgba(22,119,255,0.28)] transition hover:bg-[#0f62d6] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loginSuccess ? (
+                    '登录成功'
+                  ) : loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      登录中...
+                    </>
+                  ) : (
+                    '登 录'
+                  )}
+                </button>
 
-            <div className="mt-12 flex items-center justify-between gap-4 md:mt-6">
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = '/forgot-password';
-                }}
-                className="order-1 flex h-14 min-w-0 items-center justify-center whitespace-nowrap rounded-full border border-slate-300/95 bg-white/72 px-8 text-xl font-medium text-slate-600 transition hover:bg-white md:order-2 md:h-12 md:flex-1 md:text-base md:text-blue-700"
-              >
-                忘记密码
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = '/register';
-                }}
-                className="order-2 flex h-14 min-w-0 items-center justify-center whitespace-nowrap rounded-full border border-sky-700/70 bg-white/72 px-8 text-xl font-medium text-blue-700 transition hover:bg-white md:order-1 md:h-12 md:flex-1 md:text-base"
-              >
-                注册新账号
-              </button>
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { window.location.href = '/register'; }}
+                    className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-[#1677ff]/40 bg-white text-sm font-medium text-[#1677ff] transition hover:bg-blue-50"
+                  >
+                    <UserRoundPlus className="h-4 w-4" />
+                    注册新账号
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { window.location.href = '/forgot-password'; }}
+                    className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-[#1677ff]/40 bg-white text-sm font-medium text-[#1677ff] transition hover:bg-blue-50"
+                  >
+                    <CircleHelp className="h-4 w-4" />
+                    忘记密码
+                  </button>
+                </div>
+              </form>
             </div>
-          </form>
-        </section>
+          </section>
+        </div>
       </div>
     </main>
   );
