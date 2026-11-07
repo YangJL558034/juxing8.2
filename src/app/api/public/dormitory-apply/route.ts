@@ -62,6 +62,23 @@ export async function POST(request: NextRequest) {
       LIMIT 1
     `).get(name, idCard) as { id: number } | undefined;
 
+    // 已有通过/入住记录时不允许再申请新房
+    const housed = db.prepare(`
+      SELECT id, status, room_no, bed_no FROM dormitory_records
+      WHERE TRIM(name) = ? AND UPPER(TRIM(COALESCE(id_card, ''))) = ?
+        AND status IN ('已审核', '已入住')
+      ORDER BY id DESC LIMIT 1
+    `).get(name, idCard) as { id: number; status: string; room_no: string | null; bed_no: string | null } | undefined;
+
+    if (housed) {
+      const room = [housed.room_no, housed.bed_no].filter(Boolean).join(' ');
+      const suffix = room ? '（' + room + '）' : '';
+      return NextResponse.json(
+        { success: false, error: '你已有住宿记录' + suffix + '，如需调换宿舍请联系人事部门' },
+        { status: 409 },
+      );
+    }
+
     if (pending) {
       return NextResponse.json(
         { success: false, error: '你已有一条待审核的住宿申请，请等待人事处理', existingId: pending.id },

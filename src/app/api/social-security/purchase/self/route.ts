@@ -43,6 +43,18 @@ export async function POST(request: NextRequest) {
     if (!employee) {
       return NextResponse.json({ success: false, error: '员工身份验证失败' }, { status: 403 });
     }
+    // 已提交「不购买社保协议」的员工不能再申请购买社保（二选一）
+    const waiverExists = db.prepare(`
+      SELECT id FROM social_security_records
+      WHERE TRIM(name) = ? AND UPPER(TRIM(COALESCE(id_card, ''))) = ? LIMIT 1
+    `).get(employee.name, String(employee.id_card || '').toUpperCase()) as { id: number } | undefined;
+    if (waiverExists) {
+      return NextResponse.json(
+        { success: false, error: '你已提交《不购买社保协议》，如需改为购买社保请联系人事部门' },
+        { status: 409 },
+      );
+    }
+
     if (String(employee.status || '').includes('离职')) {
       return NextResponse.json({ success: false, error: '该员工已离职，无法提交' }, { status: 403 });
     }

@@ -93,6 +93,19 @@ export async function POST(request: NextRequest) {
     if (!data.position.trim()) {
       return NextResponse.json({ success: false, error: '入职岗位不能为空' }, { status: 400 });
     }
+    // 防重复提交：同一姓名 + 身份证已有待审核记录时直接拒绝
+    const dupPending = db.prepare(`
+      SELECT id FROM onboarding_records
+      WHERE TRIM(name) = ? AND UPPER(TRIM(COALESCE(id_card, ''))) = ? AND status = '待审核'
+      LIMIT 1
+    `).get(data.name.trim(), data.idCard.trim().toUpperCase()) as { id: number } | undefined;
+    if (dupPending) {
+      return NextResponse.json(
+        { success: false, error: '你已提交过入职登记，正在等待审核，请勿重复提交' },
+        { status: 409 },
+      );
+    }
+
     if (!data.promiseConfirmed) {
       return NextResponse.json({ success: false, error: '请确认入职承诺' }, { status: 400 });
     }
