@@ -231,7 +231,7 @@ function isImageAttachment(name?: string | null): boolean {
 
 function AvatarMark({ name, gender, large = false, src }: { name: string; gender?: string | null; large?: boolean; src?: string }) {
   const female = gender === '女';
-  return <div aria-label={`${name}头像`} className={`${large ? 'h-16 w-16' : 'h-11 w-11'} flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br ${female ? 'from-pink-300 to-rose-500 shadow-pink-200' : 'from-blue-300 to-blue-600 shadow-blue-200'} text-white shadow-lg`}>{src ? <img src={src} alt={`${name}头像`} className="h-full w-full object-cover" /> : <UserRound className={large ? 'h-9 w-9' : 'h-6 w-6'} strokeWidth={1.8} />}</div>;
+  return <div aria-label={`${name}头像`} className={`${large ? 'h-16 w-16' : 'h-11 w-11'} flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 shadow-sm ring-1 ring-slate-200`}><img src={src || '/employee-icons/default-avatar.png'} alt={`${name}头像`} className="h-full w-full object-cover" /></div>;
 }
 
 function MetricCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {

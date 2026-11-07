@@ -59,5 +59,14 @@ export async function POST(request: NextRequest) {
   } else {
     db.prepare(`UPDATE ${table} SET status = ?, reviewer_name = ?, reviewed_at = datetime('now', '+8 hours'), updated_at = datetime('now', '+8 hours') WHERE id = ?`).run(body.status, session.name, body.id);
   }
+    try {
+      db.prepare(`
+        INSERT INTO operation_logs (username, module, action, description, created_at)
+        VALUES (?, 'employee', 'review', ?, datetime('now', '+8 hours'))
+      `).run(session.name || '员工管理者', `审核${body.type} #${body.id}：${body.status}`);
+    } catch (logError) {
+      console.error('manager review log error:', logError);
+    }
+
   return NextResponse.json({ success: true });
 }
