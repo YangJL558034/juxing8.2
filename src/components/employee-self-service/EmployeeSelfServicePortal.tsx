@@ -264,6 +264,10 @@ export default function EmployeeSelfServicePortal() {
   const [readNotificationIds, setReadNotificationIds] = useState<number[]>([]);
   const [managerApplications, setManagerApplications] = useState<Array<{ id: number; type: string; employeeName: string; department?: string; status: string; createdAt: string }>>([]);
   const [reviewView, setReviewView] = useState<'pending' | 'done'>('pending');
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailFields, setDetailFields] = useState<Array<{ label: string; value: string }>>([]);
+  const [detailTitle, setDetailTitle] = useState('');
   const [reviewTarget, setReviewTarget] = useState<{ type: string; id: number; status: '已审核' | '已驳回'; employeeName: string } | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [signRecord, setSignRecord] = useState<SalaryRecord | null>(null);
@@ -309,6 +313,27 @@ export default function EmployeeSelfServicePortal() {
       setError(reviewError instanceof Error ? reviewError.message : '审核失败，请重试');
     } finally {
       setReviewing(false);
+    }
+  };
+
+  const openDetail = async (type: string, id: number) => {
+    setDetailTitle(type);
+    setDetailFields([]);
+    setDetailOpen(true);
+    setDetailLoading(true);
+    try {
+      const portalToken = (() => { try { return window.localStorage.getItem('employee-portal-token') || ''; } catch { return ''; } })();
+      const response = await fetch(`/api/employee-self-service/manager/applications/detail?type=${encodeURIComponent(type)}&id=${id}`, {
+        headers: { ...(portalToken ? { 'X-Employee-Token': portalToken } : {}) },
+        cache: 'no-store',
+      });
+      const result = await response.json().catch(() => ({})) as { success?: boolean; error?: string; fields?: Array<{ label: string; value: string }> };
+      if (!response.ok || !result.success) throw new Error(result.error || '获取详情失败');
+      setDetailFields(result.fields || []);
+    } catch (detailError) {
+      setDetailFields([{ label: '提示', value: detailError instanceof Error ? detailError.message : '获取详情失败' }]);
+    } finally {
+      setDetailLoading(false);
     }
   };
 
@@ -683,7 +708,7 @@ export default function EmployeeSelfServicePortal() {
                 <p className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500">暂无待审核申请</p>
               )}
               {pendingApps.map((item) => (
-                <div key={`pending-${item.type}-${item.id}`} className="rounded-2xl bg-white p-4 shadow-sm">
+                <div key={`pending-${item.type}-${item.id}`} className="cursor-pointer rounded-2xl bg-white p-4 shadow-sm active:bg-slate-50" onClick={() => void openDetail(item.type, item.id)}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-slate-900">{item.type}</p>
@@ -692,7 +717,7 @@ export default function EmployeeSelfServicePortal() {
                     </div>
                     <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">{item.status}</span>
                   </div>
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-3 flex gap-2" onClick={(event) => event.stopPropagation()}>
                     <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => reviewApplication(item.type, item.id, '已审核', item.employeeName)}>通过</Button>
                     <Button size="sm" variant="outline" className="border-rose-200 text-rose-600" onClick={() => reviewApplication(item.type, item.id, '已驳回', item.employeeName)}>驳回</Button>
                   </div>
@@ -705,7 +730,7 @@ export default function EmployeeSelfServicePortal() {
                 <p className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500">暂无处理记录</p>
               )}
               {doneApps.map((item) => (
-                <div key={`done-${item.type}-${item.id}`} className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                <div key={`done-${item.type}-${item.id}`} className="cursor-pointer rounded-2xl bg-white px-4 py-3 shadow-sm active:bg-slate-50" onClick={() => void openDetail(item.type, item.id)}>
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-slate-800">{item.type} · {item.employeeName}</p>
@@ -718,6 +743,27 @@ export default function EmployeeSelfServicePortal() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {detailOpen && (
+            <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 px-0 sm:items-center sm:px-6">
+              <div className="max-h-[82vh] w-full max-w-md overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                  <p className="text-base font-semibold text-slate-900">{detailTitle}详情</p>
+                  <button type="button" onClick={() => setDetailOpen(false)} className="rounded-full px-2 py-1 text-sm text-slate-400">关闭</button>
+                </div>
+                <div className="max-h-[68vh] overflow-y-auto px-4 py-3">
+                  {detailLoading && <p className="py-8 text-center text-sm text-slate-400">加载中...</p>}
+                  {!detailLoading && detailFields.length === 0 && <p className="py-8 text-center text-sm text-slate-400">暂无详细信息</p>}
+                  {!detailLoading && detailFields.map((field, index) => (
+                    <div key={`${field.label}-${index}`} className="flex gap-3 border-b border-slate-50 py-2.5 last:border-0">
+                      <span className="w-24 shrink-0 text-sm text-slate-500">{field.label}</span>
+                      <span className="min-w-0 flex-1 break-words text-sm text-slate-900">{field.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
