@@ -375,6 +375,16 @@ export default function EmployeeSelfServicePortal() {
       setData(portalData);
       if (portalData.employee.isSelfServiceManager) void loadManagerApplications();
       setReadNotificationIds(portalData.serviceSummary.notifications.filter((item) => item.isRead).map((item) => item.id));
+      // 合并本地记录的「合成通知」已读 id（转正/离职/证明审核结果不在 notifications 表里）
+      try {
+        const rawLocal = window.localStorage.getItem('employee-portal-local-read');
+        if (rawLocal) {
+          const localIds = JSON.parse(rawLocal) as number[];
+          if (Array.isArray(localIds) && localIds.length) {
+            setReadNotificationIds(current => Array.from(new Set([...current, ...localIds])));
+          }
+        }
+      } catch { /* 忽略本地已读读取异常 */ }
       if (!preserveNavigation) {
         const initialTab: PortalTab = 'home';
         setActiveTab(initialTab);
@@ -474,6 +484,12 @@ export default function EmployeeSelfServicePortal() {
     // 系统合成的审核通知（转正/离职/证明等）id 为负数，不在 notifications 表里，仅本地标记已读
     if (!Number.isFinite(id) || id <= 0) {
       setReadNotificationIds(current => current.includes(id) ? current : [...current, id]);
+      try {
+        const rawLocal = window.localStorage.getItem('employee-portal-local-read');
+        const localIds = rawLocal ? (JSON.parse(rawLocal) as number[]) : [];
+        const next = Array.from(new Set([...(Array.isArray(localIds) ? localIds : []), id]));
+        window.localStorage.setItem('employee-portal-local-read', JSON.stringify(next));
+      } catch { /* 忽略本地已读写入异常 */ }
       return;
     }
 
