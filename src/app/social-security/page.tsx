@@ -42,7 +42,7 @@ function Field({
 }
 
 export default function SocialSecurityPage() {
-  const [data, setData] = useState<SocialSecurityFormData>(() => createDefaultSocialSecurityData('combined'));
+  const [data, setData] = useState<SocialSecurityFormData>(() => createDefaultSocialSecurityData('waiver'));
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -115,7 +115,7 @@ export default function SocialSecurityPage() {
           <h1 className="mt-5 text-xl font-semibold">提交成功</h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">后台将生成一条记录，导出文件包含两页社保声明。</p>
           <Button className="mt-6 w-full bg-blue-600 hover:bg-blue-700" onClick={() => {
-            setData(createDefaultSocialSecurityData('combined'));
+            setData(createDefaultSocialSecurityData('waiver'));
             setSubmitted(false);
           }}>
             继续填写
