@@ -90,9 +90,11 @@ export default function SocialSecurityPage() {
     setSubmitting(true);
     setError('');
     try {
+      // 员工自助平台内使用：带上已登录 token，避免 cookie 失效导致 401
+      const portalToken = (() => { try { return window.localStorage.getItem('employee-portal-token') || ''; } catch { return ''; } })();
       const response = await fetch('/api/social-security', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(portalToken ? { 'X-Employee-Token': portalToken } : {}) },
         body: JSON.stringify({ data }),
       });
       const result = await response.json().catch(() => ({})) as { success?: boolean; error?: string };
