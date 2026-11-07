@@ -470,13 +470,20 @@ export default function EmployeeSelfServicePortal() {
 
   const markNotificationRead = async (id: number) => {
     if (readNotificationIds.includes(id)) return;
-    try {
-      const portalToken = (() => { try { return window.localStorage.getItem('employee-portal-token') || ''; } catch { return ''; } })();
-      const response = await fetch('/api/employee-self-service/notifications/read', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(portalToken ? { 'X-Employee-Token': portalToken } : {}) }, body: JSON.stringify({ id }) });
-      const result = await response.json() as { success?: boolean };
-      if (!response.ok || !result.success) throw new Error('已读状态保存失败，请重试');
+
+    // 系统合成的审核通知（转正/离职/证明等）id 为负数，不在 notifications 表里，仅本地标记已读
+    if (!Number.isFinite(id) || id <= 0) {
       setReadNotificationIds(current => current.includes(id) ? current : [...current, id]);
-    } catch { setError('已读状态保存失败，请重新登录后重试'); }
+      return;
+    }
+
+    const portalToken = (() => { try { return window.localStorage.getItem('employee-portal-token') || ''; } catch { return ''; } })();
+    try {
+      const response = await fetch('/api/employee-self-service/notifications/read', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(portalToken ? { 'X-Employee-Token': portalToken } : {}) }, body: JSON.stringify({ id }) });
+      const result = await response.json().catch(() => ({})) as { success?: boolean };
+      void result;
+    } catch { /* 忽略网络异常 */ }
+    setReadNotificationIds(current => current.includes(id) ? current : [...current, id]);
   };
 
   useEffect(() => {
