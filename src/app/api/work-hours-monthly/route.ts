@@ -54,6 +54,30 @@ function findCurrentEmployee(user: { id: number; username: string; name: string 
   `).get(user.id, user.name, user.username, user.id, user.name) as EmployeeContext | undefined;
 }
 
+// 列表查询通用字段（排除 details 大 JSON，详情接口另查）
+const MONTHLY_LIST_COLS = `
+  w.id, w.month, w.total_days, w.work_hours, w.overtime_hours, w.weekend_overtime,
+  w.employee_name, w.year, w.month_num, w.normal_hours, w.weekday_overtime,
+  w.base_salary, w.normal_pay, w.weekday_overtime_pay, w.weekend_overtime_pay,
+  w.total_payable, w.deduction, w.actual_amount, w.location, w.is_full_attendance,
+  w.id_card, w.bank_account, w.bank_name, w.performance_allowance,
+  w.other_subsidy_base, w.required_hours, w.full_attendance_hours,
+  w.holiday_overtime_hours, w.night_shift_days, w.absent_days,
+  w.personal_leave_hours, w.sick_leave_hours, w.late_early_minutes,
+  w.late_early_count, w.sign_card_count, w.evaluation_coefficient,
+  w.performance_pay, w.holiday_overtime_pay, w.sick_pay, w.living_subsidy,
+  w.other_pay, w.seniority_award, w.full_attendance_award, w.position_subsidy,
+  w.work_reward, w.spring_festival_subsidy, w.social_security_subsidy,
+  w.deduct_social_security, w.deduct_loan, w.deduct_urgent, w.deduct_other,
+  w.deduct_utilities, w.total_deduction, w.remark, w.created_at,
+  w.signature, w.signature_time,
+  ? as employee_id,
+  COALESCE(NULLIF(w.employee_name, ''), ?) as employee_name,
+  COALESCE(NULLIF(w.department, ''), ?) as department,
+  ? as id_card,
+  COALESCE(NULLIF(w.location, ''), ?) as location
+`;
+
 function getEmployeeMonthlyRecords(employee: EmployeeContext, year?: string | null, month?: string | null) {
   const where = [
     'w.year BETWEEN 2000 AND 2100',
@@ -81,12 +105,7 @@ function getEmployeeMonthlyRecords(employee: EmployeeContext, year?: string | nu
 
   return db.prepare(`
     SELECT
-      w.*,
-      ? as employee_id,
-      COALESCE(NULLIF(w.employee_name, ''), ?) as employee_name,
-      COALESCE(NULLIF(w.department, ''), ?) as department,
-      ? as id_card,
-      COALESCE(NULLIF(w.location, ''), ?) as location
+      ${MONTHLY_LIST_COLS}
     FROM work_hours_monthly w
     WHERE ${where.join(' AND ')}
     ORDER BY w.year DESC, w.month_num DESC, w.id DESC
@@ -179,12 +198,7 @@ export async function GET(request: NextRequest) {
         scopedEmployee = employee;
         records = db.prepare(`
           SELECT
-            w.*,
-            ? as employee_id,
-            COALESCE(NULLIF(w.employee_name, ''), ?) as employee_name,
-            COALESCE(NULLIF(w.department, ''), ?) as department,
-            ? as id_card,
-            COALESCE(NULLIF(w.location, ''), ?) as location
+            ${MONTHLY_LIST_COLS}
           FROM work_hours_monthly w
           WHERE w.year BETWEEN 2000 AND 2100
             AND w.month_num BETWEEN 1 AND 12

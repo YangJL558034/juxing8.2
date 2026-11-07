@@ -77,21 +77,23 @@ export async function POST(request: NextRequest) {
     if (!employee) {
       return NextResponse.json({ success: false, error: '姓名和身份证号码未匹配到已审核的在职入职记录' }, { status: 400 });
     }
+    // 员工入职记录作为默认值：姓名/身份证/工号/部门不可改（用系统值），
+    // 职位/入职日期/合同到期允许用户在系统缺省时手动补充，用户提交的值优先
     const data = normalizeResignationData({
       ...submittedData,
       name: employee.name,
       idCard: employee.idCard,
-      employeeNo: employee.employeeNo,
-      department: employee.department,
-      position: employee.position,
-      hireDate: employee.hireDate,
-      contractEndDate: employee.contractEndDate,
+      employeeNo: employee.employeeNo ?? submittedData.employeeNo,
+      department: employee.department ?? submittedData.department,
+      position: submittedData.position || employee.position,
+      hireDate: submittedData.hireDate || employee.hireDate,
+      contractEndDate: submittedData.contractEndDate || employee.contractEndDate,
     });
 
     if (!data.employeeNo) return NextResponse.json({ success: false, error: '系统中的员工工号为空，请联系后台补充' }, { status: 400 });
     if (!data.department) return NextResponse.json({ success: false, error: '系统中的员工部门为空，请联系后台补充' }, { status: 400 });
-    if (!data.position) return NextResponse.json({ success: false, error: '职位不能为空' }, { status: 400 });
-    if (!data.hireDate) return NextResponse.json({ success: false, error: '入职日期不能为空' }, { status: 400 });
+    if (!data.position) return NextResponse.json({ success: false, error: '职位不能为空（系统中无记录，请手动填写后重试）' }, { status: 400 });
+    if (!data.hireDate) return NextResponse.json({ success: false, error: '入职日期不能为空（系统中无记录，请手动填写后重试）' }, { status: 400 });
     if (!data.applyDate) return NextResponse.json({ success: false, error: '申请日期不能为空' }, { status: 400 });
     if (!data.resignationDate) return NextResponse.json({ success: false, error: '正式离职日期不能为空' }, { status: 400 });
     if (!data.handoverDate) return NextResponse.json({ success: false, error: '交接日期不能为空' }, { status: 400 });

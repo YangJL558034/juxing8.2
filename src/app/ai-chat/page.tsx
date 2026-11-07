@@ -16,14 +16,12 @@ interface Message {
   timestamp: Date;
 }
 
-interface AIChatPageProps {
-  user?: {
-    id: number;
-    username: string;
-    name: string;
-    role: string;
-    department?: string;
-  };
+interface AIChatUser {
+  id: number;
+  username: string;
+  name: string;
+  role: string;
+  department?: string;
 }
 
 const welcomeMessage: Message = {
@@ -42,17 +40,51 @@ const welcomeMessage: Message = {
   timestamp: new Date(),
 };
 
-export default function AIChatPage({ user }: AIChatPageProps) {
+export default function AIChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [user, setUser] = useState<AIChatUser | undefined>(undefined);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // 调试：打印用户信息
   console.log('AIChatPage - 用户信息:', user);
+
+  // 加载当前登录用户
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (!res.ok) {
+          if (!cancelled) {
+            setMessages([welcomeMessage]);
+            setLoadingHistory(false);
+          }
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled && data?.success && data.user) {
+          setUser(data.user as AIChatUser);
+        } else if (!cancelled) {
+          setMessages([welcomeMessage]);
+          setLoadingHistory(false);
+        }
+      } catch (error) {
+        console.error('AIChatPage - 加载用户信息失败:', error);
+        if (!cancelled) {
+          setMessages([welcomeMessage]);
+          setLoadingHistory(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 加载历史聊天记录
   useEffect(() => {
@@ -61,8 +93,8 @@ export default function AIChatPage({ user }: AIChatPageProps) {
       loadChatHistory();
     } else {
       console.log('AIChatPage - 无用户信息，显示欢迎消息');
-      setMessages([welcomeMessage]);
-      setLoadingHistory(false);
+      // 仅在用户加载阶段已结束且仍无 user 时显示欢迎消息
+      // （避免初始挂载时还没拿到 user 就覆盖）
     }
   }, [user?.id]);
 

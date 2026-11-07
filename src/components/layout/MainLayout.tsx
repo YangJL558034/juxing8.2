@@ -490,7 +490,7 @@ export function MainLayout({ user }: MainLayoutProps) {
       case 'generate':
         return <GeneratePage />;
       case 'ai-chat':
-        return <AIChatPage user={user} />;
+        return <AIChatPage />;
       case 'realtime-chat':
         return <RealtimeChatPage user={user} />;
       case 'assets':

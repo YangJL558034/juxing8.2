@@ -96,9 +96,11 @@ async function requireUser(request: NextRequest) {
 
 export async function GET() {
   try {
+    // 列表接口不返回 image_url（base64 可能每条约 200KB+，前端列表不需要缩略图外的大图）
     const rows = db.prepare(`
       SELECT
-        i.*,
+        i.id, i.name, i.category, i.unit, i.quantity, i.unit_price, i.remark,
+        i.created_at, i.updated_at,
         COALESCE(SUM(CASE WHEN c.status = '已审核' AND c.deleted_at IS NULL THEN c.quantity ELSE 0 END), 0) AS claimed_quantity,
         COALESCE(SUM(CASE WHEN c.status = '待审核' AND c.deleted_at IS NULL THEN c.quantity ELSE 0 END), 0) AS pending_quantity
       FROM item_inventory i

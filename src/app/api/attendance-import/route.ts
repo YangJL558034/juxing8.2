@@ -72,9 +72,10 @@ export async function POST(request: NextRequest) {
     const templateKind = detectTemplateKind(workbook);
     const locationKey = resolveLocationKey(location, fileName, templateKind);
     const importLocation = displayLocation(locationKey);
-    const sheetName = templateKind === 'workshop' && workbook.SheetNames.includes('考勤记录')
-      ? '考勤记录'
-      : workbook.SheetNames[0];
+    // ⚠️ 不能直接用 SheetNames[0]：考勤机导出的文件常带一张陈旧的副本表
+    // （例如名为 "1" 的表，姓名可能还是离职人员），读错表会导致
+    // 在职员工被漏掉、或把别人的打卡算到错误的人头上。
+    const sheetName = pickImportSheet(workbook, templateKind);
     const worksheet = workbook.Sheets[sheetName];
 
     if (!worksheet) {
@@ -157,7 +158,7 @@ function detectTemplateKind(workbook: XLSX.WorkBook): TemplateKind {
 
   const firstSheetName = workbook.SheetNames[0] || '';
   const firstSheet = workbook.Sheets[firstSheetName];
-  if (firstSheetName.includes('员工刷卡记录表') || firstSheetName.includes('刷卡')) {
+  if (normalizeText(firstSheetName).includes('员工刷卡记录表') || firstSheetName.includes('刷卡')) {
     return 'office';
   }
 
@@ -169,12 +170,37 @@ function detectTemplateKind(workbook: XLSX.WorkBook): TemplateKind {
       range: 0,
     }) as CellValue[][];
     const text = preview.slice(0, 10).map((row) => row.map(cellText).join('')).join('');
-    if (text.includes('员工刷卡记录表')) {
+    // 导出表标题常带空格（"员 工 刷 卡 记 录 表"），必须去掉空白后再匹配，
+    // 否则会误判成 legacy 模板
+    if (normalizeText(text).includes('员工刷卡记录表')) {
       return 'office';
     }
   }
 
   return 'legacy';
+}
+
+/**
+ * 选择要导入的工作表：
+ * 1. 车间模板固定用「考勤记录」
+ * 2. 优先取明确命名的「员工刷卡记录表」——文件里若混有陈旧副本表（如名为 "1" 的表），
+ *    只有这张表反映的是最新在职人员
+ * 3. 都没有时退回第一张表，兼容老格式文件
+ */
+function pickImportSheet(workbook: XLSX.WorkBook, templateKind: TemplateKind): string {
+  const names = workbook.SheetNames;
+  if (templateKind === 'workshop' && names.includes('考勤记录')) {
+    return '考勤记录';
+  }
+  const named = names.find((name) => normalizeText(name).includes('员工刷卡记录表'));
+  if (named) {
+    return named;
+  }
+  const swipe = names.find((name) => name.includes('刷卡'));
+  if (swipe) {
+    return swipe;
+  }
+  return names[0];
 }
 
 function resolveLocationKey(input: unknown, fileName: string, templateKind: TemplateKind): LocationKey {

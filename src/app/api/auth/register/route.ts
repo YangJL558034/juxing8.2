@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, db } from '@/lib/database';
+import { query, db, isUsernameForbidden, validatePasswordStrength } from '@/lib/database';
 import bcrypt from 'bcryptjs';
 
 // 用户注册
@@ -12,10 +12,16 @@ export async function POST(request: NextRequest) {
     if (!username || !password || !name || !registrationCode) {
       return NextResponse.json({ error: '请填写完整信息' }, { status: 400 });
     }
-    
-    // 验证密码长度
-    if (password.length < 6) {
-      return NextResponse.json({ error: '密码长度至少6位' }, { status: 400 });
+
+    // 安全校验：禁用语用户名（admin 等永远不允许注册）
+    if (isUsernameForbidden(username)) {
+      return NextResponse.json({ error: `用户名 "${username}" 被禁止使用，请换一个` }, { status: 400 });
+    }
+
+    // 安全校验：强密码策略（替换原先"至少6位"的弱校验）
+    const pwdError = validatePasswordStrength(password);
+    if (pwdError) {
+      return NextResponse.json({ error: '密码强度不足：' + pwdError }, { status: 400 });
     }
     
     // 验证注册码

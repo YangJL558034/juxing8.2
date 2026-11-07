@@ -9,7 +9,14 @@ export async function GET(
 ) {
   try {
     const { filename } = await params;
-    
+
+    // 路径遍历防御：filename 来自 URL，攻击者可控。
+    // 拒绝包含路径分隔符、.. 或绝对路径的输入，避免读取出 uploads 目录外的任意文件
+    // （如 .env、data/crm.db 等敏感文件）。
+    if (!filename || filename.includes('/') || filename.includes('\\') || filename.includes('..') || path.isAbsolute(filename)) {
+      return NextResponse.json({ error: '非法文件名' }, { status: 400 });
+    }
+
     // 兼容通知中心上传到 public/uploads 以及历史 notifications 子目录的文件
     const rootPath = path.join(process.cwd(), 'public', 'uploads', filename);
     const legacyPath = path.join(process.cwd(), 'public', 'uploads', 'notifications', filename);

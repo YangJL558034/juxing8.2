@@ -1,15 +1,13 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import bcrypt from 'bcryptjs';
 import { chinaNowSql, formatChinaDateTime } from './china-time';
 
 // 检测是否在构建环境中 - 只在 Next.js 构建阶段返回 true
 const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
 
 // 数据库文件路径
-const getDbPath = () => process.env.CRM_DATABASE_PATH ? path.resolve(process.env.CRM_DATABASE_PATH) : process.env.COZE_PROJECT_ENV === 'PROD'
-  ? '/tmp/crm.db'  // 生产环境使用 /tmp
+const getDbPath = () => process.env.CRM_DATABASE_PATH ? path.resolve(process.env.CRM_DATABASE_PATH)
   : path.join(/* turbopackIgnore: true */ process.cwd(), 'data', 'crm.db');
 
 export function getDatabaseFilePath() {
@@ -2250,21 +2248,8 @@ export function initDatabase(dbInstance: Database.Database) {
     // 忽略错误
   }
 
-  // 插入默认管理员账号
-  const adminExists = dbInstance.prepare('SELECT id FROM users WHERE username = ?').get('admin');
-  if (!adminExists) {
-    const hashedPassword = bcrypt.hashSync('admin123', 10);
-    dbInstance.prepare(`
-      INSERT INTO users (username, password, name, role, department, email)
-      VALUES (?, ?, ?, 'admin', '总经办', 'admin@example.com')
-    `).run('admin', hashedPassword, '系统管理员');
-  }
-  
-  // 如果管理员已存在但没有邮箱，更新邮箱
-  const admin = dbInstance.prepare('SELECT id, email FROM users WHERE username = ?').get('admin') as { id: number; email?: string } | undefined;
-  if (admin && !admin.email) {
-    dbInstance.prepare('UPDATE users SET email = ? WHERE id = ?').run('admin@example.com', admin.id);
-  }
+  // 注意：不再自动创建 admin 账号（曾因硬编码密码 admin123 导致攻击者登录）
+  // 如需创建管理员，请通过 /api/users（需 admin 鉴权）手动指定强密码。
 
   // 初始化权限模块 - 与导航栏菜单项对应
   const permissionsData = [
@@ -2732,7 +2717,21 @@ function cleanResignedEmployees(dbInstance: Database.Database) {
 const validMonthlyRecordWhere = 'w.year BETWEEN 2000 AND 2100 AND w.month_num BETWEEN 1 AND 12';
 const monthlyRecordSelect = `
   SELECT
-    w.*,
+    w.id, w.month, w.total_days, w.work_hours, w.overtime_hours, w.weekend_overtime,
+    w.employee_name, w.year, w.month_num, w.normal_hours, w.weekday_overtime,
+    w.base_salary, w.normal_pay, w.weekday_overtime_pay, w.weekend_overtime_pay,
+    w.total_payable, w.deduction, w.actual_amount, w.is_full_attendance,
+    w.id_card, w.bank_account, w.bank_name, w.performance_allowance,
+    w.other_subsidy_base, w.required_hours, w.full_attendance_hours,
+    w.holiday_overtime_hours, w.night_shift_days, w.absent_days,
+    w.personal_leave_hours, w.sick_leave_hours, w.late_early_minutes,
+    w.late_early_count, w.sign_card_count, w.evaluation_coefficient,
+    w.performance_pay, w.holiday_overtime_pay, w.sick_pay, w.living_subsidy,
+    w.other_pay, w.seniority_award, w.full_attendance_award, w.position_subsidy,
+    w.work_reward, w.spring_festival_subsidy, w.social_security_subsidy,
+    w.deduct_social_security, w.deduct_loan, w.deduct_urgent, w.deduct_other,
+    w.deduct_utilities, w.total_deduction, w.remark, w.created_at,
+    w.location,
     COALESCE(
       e.id,
       (SELECT e2.id FROM employees e2 WHERE e2.name = w.employee_name ORDER BY e2.id DESC LIMIT 1),
@@ -2917,7 +2916,28 @@ export const query = {
   
   // 工时月份汇总
   getWorkHoursMonthly: db.prepare(`${monthlyRecordSelect} WHERE ${validMonthlyRecordWhere} ORDER BY w.year DESC, w.month_num DESC, w.employee_id`),
-  getWorkHoursMonthlyByEmployee: db.prepare('SELECT * FROM work_hours_monthly WHERE employee_id = ? AND year BETWEEN 2000 AND 2100 AND month_num BETWEEN 1 AND 12 ORDER BY year DESC, month_num DESC'),
+  getWorkHoursMonthlyByEmployee: db.prepare(`
+    SELECT
+      w.id, w.month, w.total_days, w.work_hours, w.overtime_hours, w.weekend_overtime,
+      w.employee_name, w.year, w.month_num, w.normal_hours, w.weekday_overtime,
+      w.base_salary, w.normal_pay, w.weekday_overtime_pay, w.weekend_overtime_pay,
+      w.total_payable, w.deduction, w.actual_amount, w.location,
+      w.is_full_attendance, w.id_card, w.bank_account, w.bank_name,
+      w.performance_allowance, w.other_subsidy_base, w.required_hours,
+      w.full_attendance_hours, w.holiday_overtime_hours, w.night_shift_days,
+      w.absent_days, w.personal_leave_hours, w.sick_leave_hours,
+      w.late_early_minutes, w.late_early_count, w.sign_card_count,
+      w.evaluation_coefficient, w.performance_pay, w.holiday_overtime_pay,
+      w.sick_pay, w.living_subsidy, w.other_pay, w.seniority_award,
+      w.full_attendance_award, w.position_subsidy, w.work_reward,
+      w.spring_festival_subsidy, w.social_security_subsidy,
+      w.deduct_social_security, w.deduct_loan, w.deduct_urgent,
+      w.deduct_other, w.deduct_utilities, w.total_deduction,
+      w.remark, w.created_at
+    FROM work_hours_monthly w
+    WHERE w.employee_id = ? AND w.year BETWEEN 2000 AND 2100 AND w.month_num BETWEEN 1 AND 12
+    ORDER BY w.year DESC, w.month_num DESC
+  `),
   getWorkHoursMonthlyByMonth: db.prepare(`${monthlyRecordSelect} WHERE ${validMonthlyRecordWhere} AND w.month = ? ORDER BY w.employee_id`),
   getWorkHoursMonthlyByYearMonth: db.prepare(`${monthlyRecordSelect} WHERE ${validMonthlyRecordWhere} AND w.year = ? AND w.month_num = ? ORDER BY w.employee_id`),
   createWorkHoursMonthly: db.prepare('INSERT INTO work_hours_monthly (employee_id, month, total_days, work_hours, overtime_hours, weekend_overtime, details, employee_name, year, month_num, normal_hours, weekday_overtime, base_salary, normal_pay, weekday_overtime_pay, weekend_overtime_pay, total_payable, deduction, actual_amount, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
@@ -3359,4 +3379,36 @@ export function generateDocNo(prefix: string): string {
   const day = String(now.getDate()).padStart(2, '0');
   const random = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
   return `${prefix}${year}${month}${day}${random}`;
+}
+
+// ========== 安全校验：禁用语用户名 + 强密码策略 ==========
+
+// 永远不允许创建/修改为这些用户名（大小写不敏感）
+export const FORBIDDEN_USERNAMES = new Set([
+  'admin', 'administrator', 'root', 'superadmin', 'super_admin',
+  'test', 'guest', 'demo', 'support', 'security', 'hacker',
+]);
+
+export function isUsernameForbidden(username: string): boolean {
+  return FORBIDDEN_USERNAMES.has(String(username || '').trim().toLowerCase());
+}
+
+/**
+ * 密码强度校验：至少 8 位，且必须同时包含：
+ *   - 大写字母
+ *   - 小写字母
+ *   - 数字
+ *   - 特殊字符（非字母非数字）
+ * 返回 null 表示合格，否则返回错误原因。
+ */
+export function validatePasswordStrength(password: string): string | null {
+  if (!password) return '密码不能为空';
+  if (password.length < 8) return '密码至少 8 位';
+  if (!/[A-Z]/.test(password)) return '密码必须包含大写字母';
+  if (!/[a-z]/.test(password)) return '密码必须包含小写字母';
+  if (!/[0-9]/.test(password)) return '密码必须包含数字';
+  if (!/[^A-Za-z0-9]/.test(password)) return '密码必须包含特殊字符（如 !@#$）';
+  // 杜绝极端弱密码变种（比如只重复同一个字符）
+  if (/^(.)\1{7,}$/.test(password)) return '密码不能是同一字符的重复';
+  return null;
 }

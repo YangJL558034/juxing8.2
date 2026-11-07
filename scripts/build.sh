@@ -22,13 +22,26 @@ echo "Building the Next.js project..."
 # 设置构建环境变量，避免数据库初始化
 export NEXT_PHASE=phase-production-build
 export NODE_ENV=production
-# 限制并行度，避免CPU占满
-export NODE_OPTIONS="--max-old-space-size=2048"
-export TURBOPACK_PROFILE=0
-# 使用传统 webpack 构建（更稳定，适合资源有限的服务器）
-pnpm next build --experimental-webpack
+# 4 核服务器用 3 核构建（~75% CPU），不卡死就行
+export NODE_OPTIONS="--max-old-space-size=1024"
+export NEXT_TELEMETRY_DISABLED=1
+
+# ⚠️ 重要：禁止 rm -rf .next/
+# Next.js 会保留旧版内容寻址的静态资源（/_next/static/xxx-yyy.js）作为兼容层。
+# 如果删掉 .next，之前缓存旧 HTML 的浏览器（尤其是微信内置浏览器）
+# 会引用已不存在的 chunk → 404 → 白屏/崩溃。
+#
+# 如果确实需要强制全量清理，务必确认所有用户都能拿到最新 HTML，
+# 或者配合 nginx 的 @reload_html 404 fallback 使用。
+# rm -rf .next  # ← 绝对不要执行这行
+
+# 3 核构建，nice 10 低优先级（别人能抢占但不极端），ionice idle
+taskset -c 0-2 nice -n 10 ionice -c 3 pnpm next build
 
 echo "Bundling server with tsup..."
-pnpm tsup src/server.ts --format cjs --platform node --target node20 --outDir dist --no-splitting --no-minify
+# tsup 输出 dist/，每次重建前清理 dist/ 是安全的（server.js 不是静态资源）
+rm -rf dist
+taskset -c 0-2 nice -n 10 ionice -c 3 pnpm tsup src/server.ts --format cjs --platform node --target node20 --outDir dist --no-splitting --no-minify
 
 echo "Build completed successfully!"
+echo "Note: .next/static/chunks/ contains old chunks preserved for cache compatibility."

@@ -126,24 +126,32 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    // 获取日期（不含年月）
-    const day = date.split('-')[2];
+    // 获取日期（不含年月），去掉前导零
+    // 必须与 POST（添加补卡）和导入接口的 key 规则保持一致，
+    // 否则 details["05"] 永远匹配不到实际存储的 details["5"]，
+    // 删除会变成空操作（接口返回成功但数据没变）
+    const day = parseInt(date.split('-')[2], 10).toString();
+    const paddedDay = date.split('-')[2];
 
-    // 获取当天现有的打卡时间
-    let dayTimes = details[day] || '';
+    // 兼容历史数据中可能存在的前导零 key
+    let dayTimes = details[day] ?? details[paddedDay] ?? '';
     const timeList = dayTimes ? dayTimes.split('\n').filter((t: string) => t.trim()) : [];
 
-    // 删除指定时间
+    // 删除指定时间（记录可能带“（备注）”后缀，比较时只取时间部分）
     const updatedList = timeList.filter((t: string) => {
       const timePart = t.split('（')[0].trim();
       return timePart !== time;
     });
 
-    // 更新 details
+    // 更新 details，统一写回无前导零的 key
     if (updatedList.length > 0) {
       details[day] = updatedList.join('\n');
     } else {
       delete details[day];
+    }
+    // 清理历史前导零 key，避免脏数据残留
+    if (paddedDay !== day) {
+      delete details[paddedDay];
     }
 
     // 保存到数据库
