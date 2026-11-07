@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   BriefcaseBusiness,
   Check,
@@ -51,6 +51,8 @@ function createInitialData(): OnboardingFormData {
     wageMethod: '底薪和加班费',
   };
 }
+
+const DRAFT_KEY = 'h5-onboarding-draft';
 
 function Stepper({ activeStep }: { activeStep: number }) {
   return (
@@ -576,9 +578,15 @@ export default function OnboardingPage() {
   const [recordId, setRecordId] = useState<number | null>(null);
   const [hasSignature, setHasSignature] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [data, setData] = useState<OnboardingFormData>(() => createInitialData());
+  const [data, setData] = useState<OnboardingFormData>(() => { if (typeof window === 'undefined') return createInitialData(); try { const raw = window.localStorage.getItem(DRAFT_KEY); if (!raw) return createInitialData(); const saved = JSON.parse(raw) as Partial<OnboardingFormData>; return { ...createInitialData(), ...saved }; } catch { return createInitialData(); } });
 
   const update: Updater = (key, value) => setData((current) => ({ ...current, [key]: value }));
+
+  // 自动保存草稿：误点返回或关闭页面后再次进入可继续填写
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try { window.localStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch { /* 忽略存储异常 */ }
+  }, [data]);
   const isSuccess = step === 9;
 
   const validateCurrent = () => {
@@ -612,6 +620,7 @@ export default function OnboardingPage() {
   const restartForm = () => {
     setData(createInitialData());
     setRecordId(null);
+    try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* 忽略存储异常 */ }
     setHasSignature(false);
     setSubmitting(false);
     setStep(1);
