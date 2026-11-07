@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
+import { getEmployeeByRequest } from '@/lib/employee-session';
 import { db } from '@/lib/database';
 import { hasPermission } from '@/lib/permission-check';
 import type {
@@ -94,8 +95,14 @@ async function requireUser(request: NextRequest) {
   return getCurrentUser(request.headers.get('cookie'));
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // 鉴权：后台管理员或已登录员工均可读取
+    const user = await getCurrentUser(request.headers.get('cookie'));
+    const employee = user ? null : await getEmployeeByRequest(request);
+    if (!user && !employee) {
+      return NextResponse.json({ success: false, error: '登录已失效，请重新登录' }, { status: 401 });
+    }
     // 列表接口不返回 image_url（base64 可能每条约 200KB+，前端列表不需要缩略图外的大图）
     const rows = db.prepare(`
       SELECT

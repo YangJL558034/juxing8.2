@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
 import { query } from '@/lib/database';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser(request.headers.get('cookie'));
+    if (!user) {
+      return NextResponse.json({ success: false, error: '登录已失效，请重新登录' }, { status: 401 });
+    }
     const contracts = (query.contracts as any).getAll.all() as any[];
     return NextResponse.json({ contracts });
   } catch (error) {

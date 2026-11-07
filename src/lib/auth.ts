@@ -86,7 +86,7 @@ export async function verifyToken(token: string): Promise<User | null> {
 
 // 设置认证 Cookie
 export function setAuthCookie(token: string): string {
-  const isSecure = process.env.COZE_PROJECT_ENV === 'PROD';
+  const isSecure = process.env.COZE_PROJECT_ENV === 'PROD' || process.env.NODE_ENV === 'production';
   return serialize('auth_token', token, {
     httpOnly: true,
     secure: isSecure,
