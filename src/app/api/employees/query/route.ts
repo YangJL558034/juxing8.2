@@ -209,6 +209,49 @@ export function computeProbation(employee: {
 
   ensureProbationColumn();
   const hireDate = String(employee.hire_date || '').slice(0, 10);
+
+  // 已转正（存在已审核的转正记录）→ 不再显示转正申请入口
+  let alreadyRegular = false;
+  let regularDateValue = '';
+  try {
+    const row = db.prepare(`
+      SELECT regularization_date FROM regularization_records
+      WHERE deleted_at IS NULL AND status = '已审核'
+        AND (employee_id = ? OR (? IS NOT NULL AND applicant_name = ?))
+      ORDER BY regularization_date DESC, id DESC LIMIT 1
+    `).get(employee.id ?? null, employee.name ?? null, employee.name ?? null) as { regularization_date: string | null } | undefined;
+    regularDateValue = String(row?.regularization_date || '').slice(0, 10);
+    alreadyRegular = Boolean(row);
+  } catch (error) {
+    console.error('computeProbation regularization lookup error:', error);
+  }
+
+  if (alreadyRegular) {
+    return {
+      status: 'regular' as const,
+      hireDate,
+      probationMonths: 0,
+      probationEnd: '',
+      regularDate: regularDateValue,
+      daysLeft: 0,
+      resigning: ['离职', '已离职'].includes(String(employee.status || '')),
+      canApplyRegularization: false,
+    };
+  }
+
+  // 没有入职日期时，办公室员工仍视为试用期（允许提交转正申请）
+  if (!hireDate) {
+    return {
+      status: 'probation' as const,
+      hireDate: '',
+      probationMonths: 0,
+      probationEnd: '',
+      regularDate: '',
+      daysLeft: 0,
+      resigning: ['离职', '已离职'].includes(String(employee.status || '')),
+      canApplyRegularization: true,
+    };
+  }
   if (!hireDate) return null;
 
   const resigned = ['离职', '已离职'].includes(String(employee.status || ''));
