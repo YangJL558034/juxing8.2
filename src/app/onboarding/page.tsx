@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import {
   BriefcaseBusiness,
   Check,
@@ -558,6 +559,12 @@ function SuccessStep({ recordId, onRestart }: { recordId: number | null; onResta
           <CheckCircle2 className="h-10 w-10" />
         </div>
       </div>
+      <Link
+        href="/employee-query"
+        className="absolute left-3 flex h-8 items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 active:scale-95"
+      >
+        <span className="text-base leading-none">‹</span>返回
+      </Link>
       <h1 className="mt-8 text-xl font-semibold text-slate-950">入职登记提交成功！</h1>
       <p className="mt-3 text-sm leading-6 text-slate-500">
         感谢您的填写，我们会尽快审核。审核结果将通过您填写的联系方式通知您。
