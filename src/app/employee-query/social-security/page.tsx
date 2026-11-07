@@ -70,6 +70,8 @@ export default function PublicSocialSecurityPage() {
         return;
       }
       setStatus(result);
+      if (result.purchase && result.purchase.status !== '已驳回') setMode('purchase');
+      else if (result.waiver) setMode('waiver');
       setStage('form');
     } catch {
       setCheckError('网络异常，请稍后重试');
@@ -159,10 +161,12 @@ export default function PublicSocialSecurityPage() {
               <span className="ml-2 text-slate-500">{status?.employee?.department || '-'} · {status?.employee?.position || '-'}</span>
             </div>
 
+            {!(purchaseBlocked || waiverBlocked) && (
             <div className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
               <button type="button" onClick={() => setMode('purchase')} className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition ${mode === 'purchase' ? 'bg-white text-[#1677ff] shadow-sm' : 'text-slate-500'}`}>购买社保</button>
               <button type="button" onClick={() => setMode('waiver')} className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition ${mode === 'waiver' ? 'bg-white text-[#1677ff] shadow-sm' : 'text-slate-500'}`}>不购买社保协议</button>
             </div>
+            )}
           </div>
 
           {mode === 'purchase' ? (
