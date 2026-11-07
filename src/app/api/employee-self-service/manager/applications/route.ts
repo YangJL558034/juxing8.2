@@ -14,10 +14,14 @@ export async function GET(request: NextRequest) {
   if (!location) return NextResponse.json({ success: true, isManager: false, records: [] });
   const assigned = db.prepare('SELECT 1 FROM employee_self_service_managers WHERE location = ? AND employee_id = ?').get(location, session.id);
   if (!assigned) return NextResponse.json({ success: true, isManager: false, records: [] });
+  // scope=all 时返回含已审核/已驳回的历史记录
+  const scope = new URL(request.url).searchParams.get('scope') || 'pending';
+  const statusClause = scope === 'all' ? "1=1" : "status NOT IN ('已审核','已驳回')";
+
   const records = [
-    ...db.prepare(`SELECT id, '请假申请' AS type, employee_name AS employeeName, department, status, created_at AS createdAt FROM leave_request_records WHERE deleted_at IS NULL AND status NOT IN ('已审核','已驳回') AND employee_id IN (SELECT id FROM employees WHERE (CASE trim(location) WHEN '办公室' THEN 'office' WHEN '车间' THEN 'workshop' ELSE lower(trim(location)) END) = ?) ORDER BY created_at DESC`).all(location),
-    ...db.prepare(`SELECT id, '离职申请' AS type, name AS employeeName, department, status, created_at AS createdAt FROM resignation_records WHERE deleted_at IS NULL AND status NOT IN ('已审核','已驳回') AND employee_id IN (SELECT id FROM employees WHERE (CASE trim(location) WHEN '办公室' THEN 'office' WHEN '车间' THEN 'workshop' ELSE lower(trim(location)) END) = ?) ORDER BY created_at DESC`).all(location),
-    ...db.prepare(`SELECT id, '转正申请' AS type, applicant_name AS employeeName, department, status, created_at AS createdAt FROM regularization_records WHERE deleted_at IS NULL AND status NOT IN ('已审核','已驳回') AND employee_id IN (SELECT id FROM employees WHERE (CASE trim(location) WHEN '办公室' THEN 'office' WHEN '车间' THEN 'workshop' ELSE lower(trim(location)) END) = ?) ORDER BY created_at DESC`).all(location),
+    ...db.prepare(`SELECT id, '请假申请' AS type, employee_name AS employeeName, department, status, created_at AS createdAt FROM leave_request_records WHERE deleted_at IS NULL AND ${statusClause} AND employee_id IN (SELECT id FROM employees WHERE (CASE trim(location) WHEN '办公室' THEN 'office' WHEN '车间' THEN 'workshop' ELSE lower(trim(location)) END) = ?) ORDER BY created_at DESC`).all(location),
+    ...db.prepare(`SELECT id, '离职申请' AS type, name AS employeeName, department, status, created_at AS createdAt FROM resignation_records WHERE deleted_at IS NULL AND ${statusClause} AND employee_id IN (SELECT id FROM employees WHERE (CASE trim(location) WHEN '办公室' THEN 'office' WHEN '车间' THEN 'workshop' ELSE lower(trim(location)) END) = ?) ORDER BY created_at DESC`).all(location),
+    ...db.prepare(`SELECT id, '转正申请' AS type, applicant_name AS employeeName, department, status, created_at AS createdAt FROM regularization_records WHERE deleted_at IS NULL AND ${statusClause} AND employee_id IN (SELECT id FROM employees WHERE (CASE trim(location) WHEN '办公室' THEN 'office' WHEN '车间' THEN 'workshop' ELSE lower(trim(location)) END) = ?) ORDER BY created_at DESC`).all(location),
   ];
   return NextResponse.json({ success: true, isManager: true, location, records });
 }

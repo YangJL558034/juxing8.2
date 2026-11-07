@@ -271,7 +271,8 @@ export default function EmployeeSelfServicePortal() {
 
   const loadManagerApplications = async () => {
     try {
-    const response = await fetch('/api/employee-self-service/manager/applications', { cache: 'no-store' });
+    const portalToken = (() => { try { return window.localStorage.getItem('employee-portal-token') || ''; } catch { return ''; } })();
+    const response = await fetch('/api/employee-self-service/manager/applications?scope=all', { cache: 'no-store', headers: { ...(portalToken ? { 'X-Employee-Token': portalToken } : {}) } });
     const payload = await response.json() as { success?: boolean; error?: string; records?: Array<{ id: number; type: string; employeeName: string; department?: string; status: string; createdAt: string }> };
     if (!response.ok || !payload.success) throw new Error(payload.error || '审核列表加载失败');
     setManagerApplications(payload.records || []);
@@ -281,12 +282,13 @@ export default function EmployeeSelfServicePortal() {
   };
 
   const reviewApplication = async (type: string, id: number, status: '已审核' | '已驳回') => {
+    const reviewToken = (() => { try { return window.localStorage.getItem('employee-portal-token') || ''; } catch { return ''; } })();
     const actionLabel = status === '已审核' ? '审核通过' : '驳回申请';
     if (!window.confirm(`确定${actionLabel}这条${type}吗？\n审核人：${data?.employee?.name || '当前账号'}`)) return;
     setError('');
     try {
       const response = await fetch('/api/employee-self-service/manager/applications', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...(reviewToken ? { 'X-Employee-Token': reviewToken } : {}) },
         body: JSON.stringify({ type, id, status }),
       });
       const result = await response.json() as { success?: boolean; error?: string };
@@ -622,7 +624,74 @@ export default function EmployeeSelfServicePortal() {
   };
 
   if (data.employee.isSelfServiceManager && activeTab === 'reviews') {
-    return <main className="min-h-screen bg-slate-50 text-slate-950"><div className="mx-auto min-h-screen max-w-md px-4 pb-8 pt-5"><PageHeader title="审核中心" subtitle={data.employee.selfServiceManagerLocation === 'workshop' ? '车间申请审核' : '办公室申请审核'} onBack={goBack} />{error && <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-rose-700">{error}</p>}<div className="mt-4 space-y-3">{managerApplications.length === 0 && <p className="rounded-2xl bg-white p-6 text-center text-slate-500">暂无待审核申请</p>}{managerApplications.map((item) => <div key={`${item.type}-${item.id}`} className="rounded-2xl bg-white p-4 shadow-sm"><div className="flex items-center justify-between"><div><p className="font-semibold">{item.type}</p><p className="mt-1 text-sm text-slate-500">{item.employeeName} · {item.department || '未设置部门'}</p></div><span className="text-xs text-amber-600">{item.status}</span></div><div className="mt-3 flex gap-2"><Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void reviewApplication(item.type, item.id, '已审核')}>通过</Button><Button size="sm" variant="outline" className="border-rose-200 text-rose-600" onClick={() => void reviewApplication(item.type, item.id, '已驳回')}>驳回</Button></div></div>)}</div></div></main>;
+    const isDone = (status: string) => ['已审核', '已驳回'].includes(String(status || ''));
+    const pendingApps = managerApplications.filter((item) => !isDone(item.status));
+    const doneApps = managerApplications.filter((item) => isDone(item.status));
+
+    return (
+      <main className="min-h-screen bg-slate-50 text-slate-950">
+        <div className="mx-auto min-h-screen max-w-md px-4 pb-8 pt-5">
+          <PageHeader
+            title="审核中心"
+            subtitle={data.employee.selfServiceManagerLocation === 'workshop' ? '车间申请审核' : '办公室申请审核'}
+            onBack={goBack}
+          />
+          {error && <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-rose-700">{error}</p>}
+
+          <div className="mt-4 flex items-center gap-2">
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm">待审核 {pendingApps.length}</span>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500 shadow-sm">已处理 {doneApps.length}</span>
+            <button
+              type="button"
+              onClick={() => void loadManagerApplications()}
+              className="ml-auto rounded-full bg-white px-3 py-1 text-xs font-semibold text-blue-600 shadow-sm"
+            >
+              刷新
+            </button>
+          </div>
+
+          <div className="mt-3 space-y-3">
+            {pendingApps.length === 0 && (
+              <p className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500">暂无待审核申请</p>
+            )}
+            {pendingApps.map((item) => (
+              <div key={`pending-${item.type}-${item.id}`} className="rounded-2xl bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-900">{item.type}</p>
+                    <p className="mt-1 text-sm text-slate-500">{item.employeeName} · {item.department || '未设置部门'}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">{item.status}</span>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void reviewApplication(item.type, item.id, '已审核')}>通过</Button>
+                  <Button size="sm" variant="outline" className="border-rose-200 text-rose-600" onClick={() => void reviewApplication(item.type, item.id, '已驳回')}>驳回</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {doneApps.length > 0 && (
+            <>
+              <p className="mt-6 mb-2 px-1 text-xs font-semibold text-slate-500">处理记录</p>
+              <div className="space-y-2">
+                {doneApps.map((item) => (
+                  <div key={`done-${item.type}-${item.id}`} className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-800">{item.type} · {item.employeeName}</p>
+                        <p className="mt-0.5 text-xs text-slate-400">{item.department || '未设置部门'}</p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${item.status === '已审核' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{item.status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </main>
+    );
   }
 
   if (embeddedFlow) {
