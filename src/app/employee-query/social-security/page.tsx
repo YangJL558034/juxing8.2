@@ -33,6 +33,20 @@ export default function PublicSocialSecurityPage() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
 
+  // 从员工自助平台进入时，自动带出已登录身份并直接核验，无需重复填写
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('employee-self-service-identity');
+      if (!raw) return;
+      const identity = JSON.parse(raw) as { name?: string; idCard?: string };
+      if (!identity.name || !identity.idCard) return;
+      setVName(identity.name);
+      setVIdCard(identity.idCard);
+      void runCheck(identity.name, identity.idCard);
+    } catch { /* 忽略身份读取异常 */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(DRAFT_KEY);
@@ -54,16 +68,16 @@ export default function PublicSocialSecurityPage() {
     } catch { /* 忽略 */ }
   }, [mode, vName, vIdCard, phone, domicile, remarks, done]);
 
-  const verify = async (event: React.FormEvent) => {
-    event.preventDefault();
+  // 统一核验逻辑（手动提交与自动带出身份都走这里）
+  const runCheck = async (nameValue: string, idCardValue: string) => {
     setCheckError('');
-    if (!vName.trim() || vIdCard.trim().length < 15) {
+    if (!nameValue.trim() || idCardValue.trim().length < 15) {
       setCheckError('请填写姓名和完整身份证号');
       return;
     }
     setChecking(true);
     try {
-      const response = await fetch(`/api/public/social-security-status?name=${encodeURIComponent(vName.trim())}&idCard=${encodeURIComponent(vIdCard.trim().toUpperCase())}`);
+      const response = await fetch(`/api/public/social-security-status?name=${encodeURIComponent(nameValue.trim())}&idCard=${encodeURIComponent(idCardValue.trim().toUpperCase())}`);
       const result = (await response.json().catch(() => ({}))) as StatusResult;
       if (!response.ok || !result.success) {
         setCheckError(result.error || '查询失败，请稍后重试');
@@ -78,6 +92,11 @@ export default function PublicSocialSecurityPage() {
     } finally {
       setChecking(false);
     }
+  };
+
+  const verify = (event: React.FormEvent) => {
+    event.preventDefault();
+    void runCheck(vName, vIdCard);
   };
 
   const submitPurchase = async (event: React.FormEvent) => {
