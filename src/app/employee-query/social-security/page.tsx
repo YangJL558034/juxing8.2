@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import SocialSecurityWaiverForm from '@/app/social-security/page';
+import { getDraftScope, readDraft, writeDraft, clearDraft } from '@/lib/portal-draft';
 
 type Mode = 'purchase' | 'waiver';
 type Stage = 'verify' | 'form';
 
-const DRAFT_KEY = 'h5-social-security-draft';
+const DRAFT_PREFIX = 'h5-social-security';
 
 interface StatusResult {
   success?: boolean;
@@ -49,9 +50,9 @@ export default function PublicSocialSecurityPage() {
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(DRAFT_KEY);
-      if (!raw) return;
-      const saved = JSON.parse(raw) as Record<string, string>;
+      const scope = getDraftScope(DRAFT_PREFIX);
+      const saved = readDraft<Record<string, string>>(scope);
+      if (!saved) return;
       setVName(saved.name || '');
       setVIdCard(saved.idCard || '');
       setPhone(saved.phone || '');
@@ -64,7 +65,7 @@ export default function PublicSocialSecurityPage() {
   useEffect(() => {
     if (done) return;
     try {
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ mode, name: vName, idCard: vIdCard, phone, domicile, remarks }));
+      writeDraft(getDraftScope(DRAFT_PREFIX), { mode, name: vName, idCard: vIdCard, phone, domicile, remarks });
     } catch { /* 忽略 */ }
   }, [mode, vName, vIdCard, phone, domicile, remarks, done]);
 
@@ -112,7 +113,7 @@ export default function PublicSocialSecurityPage() {
       const result = await response.json().catch(() => ({}));
       if (!response.ok || !result.success) throw new Error(result.error || '提交失败，请稍后重试');
       setDone(true);
-      try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* 忽略 */ }
+      clearDraft(getDraftScope(DRAFT_PREFIX));
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : '提交失败，请稍后重试');
     } finally {

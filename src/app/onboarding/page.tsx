@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { getDraftScope, readDraft, writeDraft, clearDraft } from '@/lib/portal-draft';
 import Link from 'next/link';
 import {
   BriefcaseBusiness,
@@ -53,7 +54,7 @@ function createInitialData(): OnboardingFormData {
   };
 }
 
-const DRAFT_KEY = 'h5-onboarding-draft';
+const DRAFT_PREFIX = 'h5-onboarding';
 
 function Stepper({ activeStep }: { activeStep: number }) {
   return (
@@ -579,14 +580,19 @@ export default function OnboardingPage() {
   const [recordId, setRecordId] = useState<number | null>(null);
   const [hasSignature, setHasSignature] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [data, setData] = useState<OnboardingFormData>(() => { if (typeof window === 'undefined') return createInitialData(); try { const raw = window.localStorage.getItem(DRAFT_KEY); if (!raw) return createInitialData(); const saved = JSON.parse(raw) as Partial<OnboardingFormData>; return { ...createInitialData(), ...saved }; } catch { return createInitialData(); } });
+  const [data, setData] = useState<OnboardingFormData>(() => {
+    if (typeof window === 'undefined') return createInitialData();
+    const saved = readDraft<Partial<OnboardingFormData>>(getDraftScope(DRAFT_PREFIX));
+    if (!saved) return createInitialData();
+    return { ...createInitialData(), ...saved };
+  });
 
   const update: Updater = (key, value) => setData((current) => ({ ...current, [key]: value }));
 
   // 自动保存草稿：误点返回或关闭页面后再次进入可继续填写
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    try { window.localStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch { /* 忽略存储异常 */ }
+    writeDraft(getDraftScope(DRAFT_PREFIX), data);
   }, [data]);
   const isSuccess = step === 9;
 
@@ -621,7 +627,7 @@ export default function OnboardingPage() {
   const restartForm = () => {
     setData(createInitialData());
     setRecordId(null);
-    try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* 忽略存储异常 */ }
+    clearDraft(getDraftScope(DRAFT_PREFIX));
     setHasSignature(false);
     setSubmitting(false);
     setStep(1);

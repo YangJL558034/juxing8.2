@@ -1,10 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import DormitoryApplicationPage from '@/components/pages/DormitoryApplicationPage';
+import { getDraftScope } from '@/lib/portal-draft';
 
 /** 免登录住宿申请：沿用后台「员工住宿舍申请」原表单，仅在职员工可提交 */
 export default function PublicDormitoryApplyPage() {
+  const [draftKey] = useState(() => getDraftScope('h5-dormitory-apply').key);
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -25,7 +28,7 @@ export default function PublicDormitoryApplyPage() {
           无需登录。填写姓名和身份证号后，系统会核验你是否为本单位在职员工；非在职人员无法提交。
           填写内容会自动保存，误点返回后再次进入可继续填写。
         </div>
-        <DormitoryApplicationPage publicMode draftKey="h5-dormitory-apply-draft" />
+        <DormitoryApplicationPage publicMode draftKey={draftKey} />
       </div>
     </main>
   );
