@@ -263,6 +263,7 @@ export default function EmployeeSelfServicePortal() {
   const [applicationDrawerOpen, setApplicationDrawerOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<number[]>([]);
   const [managerApplications, setManagerApplications] = useState<Array<{ id: number; type: string; employeeName: string; department?: string; status: string; createdAt: string }>>([]);
+  const [reviewView, setReviewView] = useState<'pending' | 'done'>('pending');
   const [reviewTarget, setReviewTarget] = useState<{ type: string; id: number; status: '已审核' | '已驳回'; employeeName: string } | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [signRecord, setSignRecord] = useState<SalaryRecord | null>(null);
@@ -637,8 +638,10 @@ export default function EmployeeSelfServicePortal() {
 
   if (data.employee.isSelfServiceManager && activeTab === 'reviews') {
     const isDone = (status: string) => ['已审核', '已驳回'].includes(String(status || ''));
-    const pendingApps = managerApplications.filter((item) => !isDone(item.status));
-    const doneApps = managerApplications.filter((item) => isDone(item.status));
+    const byTimeDesc = (a: { createdAt?: string }, b: { createdAt?: string }) =>
+      String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+    const pendingApps = managerApplications.filter((item) => !isDone(item.status)).sort(byTimeDesc);
+    const doneApps = managerApplications.filter((item) => isDone(item.status)).sort(byTimeDesc);
 
     return (
       <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -651,57 +654,73 @@ export default function EmployeeSelfServicePortal() {
           {error && <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-rose-700">{error}</p>}
 
           <div className="mt-4 flex items-center gap-2">
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm">待审核 {pendingApps.length}</span>
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500 shadow-sm">已处理 {doneApps.length}</span>
+            <button
+              type="button"
+              onClick={() => setReviewView('pending')}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold shadow-sm transition ${reviewView === 'pending' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}
+            >
+              待审核 {pendingApps.length}
+            </button>
+            <button
+              type="button"
+              onClick={() => setReviewView('done')}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold shadow-sm transition ${reviewView === 'done' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}
+            >
+              已处理 {doneApps.length}
+            </button>
             <button
               type="button"
               onClick={() => void loadManagerApplications()}
-              className="ml-auto rounded-full bg-white px-3 py-1 text-xs font-semibold text-blue-600 shadow-sm"
+              className="ml-auto rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-blue-600 shadow-sm"
             >
               刷新
             </button>
           </div>
 
-          <div className="mt-3 space-y-3">
-            {pendingApps.length === 0 && (
-              <p className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500">暂无待审核申请</p>
-            )}
-            {pendingApps.map((item) => (
-              <div key={`pending-${item.type}-${item.id}`} className="rounded-2xl bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-slate-900">{item.type}</p>
-                    <p className="mt-1 text-sm text-slate-500">{item.employeeName} · {item.department || '未设置部门'}</p>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">{item.status}</span>
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => reviewApplication(item.type, item.id, '已审核', item.employeeName)}>通过</Button>
-                  <Button size="sm" variant="outline" className="border-rose-200 text-rose-600" onClick={() => reviewApplication(item.type, item.id, '已驳回', item.employeeName)}>驳回</Button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {doneApps.length > 0 && (
-            <>
-              <p className="mt-6 mb-2 px-1 text-xs font-semibold text-slate-500">处理记录</p>
-              <div className="space-y-2">
-                {doneApps.map((item) => (
-                  <div key={`done-${item.type}-${item.id}`} className="rounded-2xl bg-white px-4 py-3 shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-800">{item.type} · {item.employeeName}</p>
-                        <p className="mt-0.5 text-xs text-slate-400">{item.department || '未设置部门'}</p>
-                      </div>
-                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${item.status === '已审核' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{item.status}</span>
+          {reviewView === 'pending' ? (
+            <div className="mt-3 space-y-3">
+              {pendingApps.length === 0 && (
+                <p className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500">暂无待审核申请</p>
+              )}
+              {pendingApps.map((item) => (
+                <div key={`pending-${item.type}-${item.id}`} className="rounded-2xl bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">{item.type}</p>
+                      <p className="mt-1 text-sm text-slate-500">{item.employeeName} · {item.department || '未设置部门'}</p>
+                      {item.createdAt ? <p className="mt-1 text-xs text-slate-400">{displayDate(item.createdAt)}</p> : null}
                     </div>
+                    <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">{item.status}</span>
                   </div>
-                ))}
-              </div>
-            </>
+                  <div className="mt-3 flex gap-2">
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => reviewApplication(item.type, item.id, '已审核', item.employeeName)}>通过</Button>
+                    <Button size="sm" variant="outline" className="border-rose-200 text-rose-600" onClick={() => reviewApplication(item.type, item.id, '已驳回', item.employeeName)}>驳回</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {doneApps.length === 0 && (
+                <p className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500">暂无处理记录</p>
+              )}
+              {doneApps.map((item) => (
+                <div key={`done-${item.type}-${item.id}`} className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-slate-800">{item.type} · {item.employeeName}</p>
+                      <p className="mt-0.5 text-xs text-slate-400">
+                        {item.department || '未设置部门'}
+                        {item.createdAt ? ` · ${displayDate(item.createdAt)}` : ''}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${item.status === '已审核' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{item.status}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
-        </div>
+
           {reviewTarget && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-6">
               <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
@@ -718,6 +737,7 @@ export default function EmployeeSelfServicePortal() {
               </div>
             </div>
           )}
+        </div>
       </main>
     );
   }
