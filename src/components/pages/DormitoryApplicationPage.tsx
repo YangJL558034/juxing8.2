@@ -54,7 +54,7 @@ function Field({
   );
 }
 
-export default function DormitoryApplicationPage() {
+export default function DormitoryApplicationPage({ publicMode = false }: { publicMode?: boolean } = {}) {
   const [data, setData] = useState<DormitoryApplicationData>(createInitialData);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);

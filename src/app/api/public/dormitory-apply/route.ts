@@ -19,6 +19,9 @@ export async function POST(request: NextRequest) {
     const idCard = normalize(body.idCard).toUpperCase();
     const phone = normalize(body.phone);
     const expectedCheckInDate = normalize(body.expectedCheckInDate);
+    const departmentInput = normalize(body.department);
+    const positionInput = normalize(body.position);
+    const agreedToRules = body.agreedToRules === true;
     const reason = normalize(body.reason);
 
     if (!name) return NextResponse.json({ success: false, error: '请填写姓名' }, { status: 400 });
@@ -26,6 +29,7 @@ export async function POST(request: NextRequest) {
     if (!/^1\d{10}$/.test(phone)) return NextResponse.json({ success: false, error: '请填写正确的手机号' }, { status: 400 });
     if (!expectedCheckInDate) return NextResponse.json({ success: false, error: '请选择预计入住日期' }, { status: 400 });
     if (reason.length < 2) return NextResponse.json({ success: false, error: '请填写入住原因' }, { status: 400 });
+    if (!agreedToRules) return NextResponse.json({ success: false, error: '请先阅读并同意住宿条款' }, { status: 400 });
 
     // 核验员工档案：姓名 + 身份证号匹配且在在职
     const employee = db.prepare(`
@@ -68,11 +72,12 @@ export async function POST(request: NextRequest) {
     const payload = {
       name: employee.name || name,
       phone,
-      department: employee.department || '',
-      position: employee.position || '',
+      department: employee.department || departmentInput || '',
+      position: employee.position || positionInput || '',
       idCard,
       expectedCheckInDate,
       reason,
+      agreedToRules: true,
       source: 'h5-public',
     };
 
